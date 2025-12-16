@@ -10,12 +10,6 @@ tasks:
         git config --global user.signingkey ~/.ssh/id_ed25519.pub
         git config --global commit.gpgsign true
 
-  commit:
-    desc: "使用 Claude AI 生成提交信息并提交代码"
-    cmds:
-      - |
-        claude -p "use chinese exec git commit"
-
   push:
     desc: "推送代码"
     vars:
@@ -27,6 +21,12 @@ tasks:
         git status
         git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
         git push
+
+  tag:
+    desc: "获取最新的 Git 标签"
+    silent: true
+    cmds:
+      - git tag --sort=creatordate | cat
 
   tag:next:
     desc: "创建 tag (参数: [版本等级] [提交信息], 等级: 1=major, 2=minor, 3=patch, 默认 3)"
