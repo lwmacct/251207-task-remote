@@ -40,7 +40,7 @@ tasks:
       - echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | { read ver; sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1; } || true
       - task: push
       - |
-        git tag -a {{.GIT_TAG_NEXT}} -m '{{.TAG_MESSAGE | default "version bump"}}'
+        git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
         git push origin {{.GIT_TAG_NEXT}}
 
   sync:upstream:
