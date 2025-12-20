@@ -1,14 +1,20 @@
 version: "3"
 
 tasks:
+  pre-commit:install:
+    desc: "安装 pre-commit 钩子"
+    silent: true
+    cmds:
+      - |
+        [ -f .git/hooks/pre-commit ] && cat .git/hooks/pre-commit | grep -c pre-commit >/dev/null || (command -v pre-commit >/dev/null && pre-commit install)
+
   push:
     desc: "推送代码"
     vars:
       TIME_NOW:
         sh: echo "chore $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S %Z')"
     cmds:
-      - |
-        [ -f .git/hooks/pre-commit ] && cat .git/hooks/pre-commit | grep -c pre-commit >/dev/null || (command -v pre-commit >/dev/null && pre-commit install)
+      - task: pre-commit:install
       - |
         git add --all
         git status
