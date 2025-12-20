@@ -8,6 +8,8 @@ tasks:
         sh: echo "chore $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S %Z')"
     cmds:
       - |
+        [ -f .git/hooks/pre-commit ] && cat .git/hooks/pre-commit | grep -c pre-commit >/dev/null || (command -v pre-commit >/dev/null && pre-commit install)
+      - |
         git add --all
         git status
         git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
