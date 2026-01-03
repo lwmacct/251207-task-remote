@@ -1,0 +1,12 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GREETING: 用于本项目的常用命令编写
+
+tasks:
+  secret:set:
+    desc: "将 .env 文件内容设置为 GitHub 仓库的 Secret"
+    cmds:
+      - gh secret set -f .env

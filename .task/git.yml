@@ -1,0 +1,356 @@
+version: "3"
+
+tasks:
+  # ========== 内部工具任务 ==========
+
+  get-default-branch:
+    desc: "获取默认分支名称"
+    silent: true
+    internal: true
+    cmds:
+      - |
+        _branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+        echo $_branch
+
+  ensure-clean:
+    desc: "确保工作区干净，否则退出"
+    silent: true
+    internal: true
+    cmds:
+      - |
+        if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+          echo "⚠️  检测到未提交的更改，请先提交或 stash 后再执行"
+          exit 1
+        fi
+
+  # ========== 公共任务 ==========
+
+  pre-commit:install:
+    desc: "安装 pre-commit 钩子"
+    silent: true
+    cmds:
+      - |
+        [ -f .git/hooks/pre-commit ] && cat .git/hooks/pre-commit | grep -c pre-commit >/dev/null || (command -v pre-commit >/dev/null && pre-commit install)
+
+  push:
+    desc: "暂存、提交并推送所有更改"
+    summary: |
+      快速提交并推送所有更改到远程仓库
+
+      执行流程:
+        1. 安装 pre-commit 钩子（如果已配置）
+        2. 暂存所有更改 (git add --all)
+        3. 显示工作区状态
+        4. 提交更改（如有改动）
+        5. 推送到远程仓库
+
+      提交消息:
+        - 可以通过参数指定: task git:push "修复bug"
+        - 不指定时自动生成: "chore YYYY-MM-DD HH:MM:SS CST"
+
+      示例:
+        task git:push                 # 使用自动生成的消息
+        task git:push "添加新功能"     # 使用自定义消息
+    vars:
+      TIME_NOW:
+        sh: echo "chore $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S %Z')"
+    cmds:
+      - task: pre-commit:install
+      - |
+        git add --all
+        git status
+        git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
+        git push
+
+  tag:
+    desc: "列出所有 Git 标签（按时间排序）"
+    silent: true
+    cmds:
+      - git tag --sort=creatordate | cat
+
+  tag:next:
+    desc: "创建并推送新版本标签（语义化版本）"
+    summary: |
+      创建并推送语义化版本标签，自动更新 pyproject.toml 并提交
+
+      用法:
+        task git:tag:next [版本等级] [提交信息]
+
+      参数:
+        版本等级: 1=major, 2=minor, 3=patch (默认 3)
+        提交信息: 可选的标签说明文字
+
+      版本规则:
+        1 = major: 主版本 (v1.0.0 -> v2.0.0) - 破坏性变更
+        2 = minor: 次版本 (v1.0.0 -> v1.1.0) - 新功能
+        3 = patch: 补丁 (v1.0.0 -> v1.0.1) - bug 修复 (默认)
+
+      示例:
+        task git:tag:next              # 创建 v1.0.1
+        task git:tag:next 2            # 创建 v1.1.0
+        task git:tag:next 1 "重大更新"  # 创建 v2.0.0
+
+      执行流程:
+        1. 更新 pyproject.toml 中的版本号
+        2. 提交并推送更改
+        3. 创建 annotated tag
+        4. 推送 tag 到远程仓库
+    vars:
+      VERSION_LEVEL: '{{index (splitList " " .CLI_ARGS) 0 | default "3"}}'
+      TAG_MESSAGE: '{{slice (splitList " " .CLI_ARGS) 1 | join " "}}'
+      GIT_TAG_NEXT:
+        sh: |
+          level="{{.VERSION_LEVEL}}"
+          tag="{{.GIT_TAG_LATEST}}"
+          # 提取版本号部分 (去掉 v 前缀)
+          version="${tag#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+          case "$level" in
+            1) echo "v$((major + 1)).0.0" ;;
+            2) echo "v${major}.$((minor + 1)).0" ;;
+            *) echo "v${major}.${minor}.$((patch + 1))" ;;
+          esac
+    cmds:
+      - echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | { read ver; sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1; } || true
+      - task: push
+      - |
+        git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
+        git push origin {{.GIT_TAG_NEXT}}
+
+  fork:sync:internal:
+    desc: "内部任务: 执行上游同步的核心逻辑"
+    silent: true
+    internal: true
+    cmds:
+      - |
+        # 检查是否配置了 upstream 远程仓库
+        if ! git remote get-url upstream >/dev/null 2>&1; then
+          echo "未配置 upstream 远程仓库，跳过同步"
+          echo "提示: 使用 'git remote add upstream <url>' 添加上游仓库"
+          exit 0
+        fi
+
+        # 使用内部任务获取默认分支
+        _default_branch=$(task get-default-branch)
+
+        # 保存当前分支名
+        _current_branch=$(git branch --show-current)
+
+        # 检查工作区是否干净
+        task ensure-clean
+
+        # 切换到默认分支
+        git checkout $_default_branch
+
+        # 从 upstream 拉取并 rebase
+        git pull --rebase upstream $_default_branch
+
+        # 推送到 origin
+        git push origin $_default_branch
+
+        echo "✅ 同步完成 ($_default_branch)"
+
+        # 将默认分支名保存到环境变量，供后续任务使用
+        echo $_default_branch > /tmp/task_default_branch
+        echo $_current_branch > /tmp/task_current_branch
+
+  fork:sync:
+    desc: "从上游同步代码并返回原分支"
+    summary: |
+      从上游仓库（upstream）同步最新代码到你的 fork，并返回当前分支
+
+      前置条件:
+        1. 必须配置 upstream 远程仓库
+           git remote add upstream <上游仓库URL>
+        2. 工作区必须干净（无未提交更改）
+
+      执行流程:
+        1. 检查 upstream 是否配置
+        2. 检查工作区状态
+        3. 切换到默认分支（main/master）
+        4. 从 upstream 拉取并 rebase
+        5. 推送到 origin
+        6. 返回原分支
+
+      配置 upstream 示例:
+        git remote add upstream https://github.com/original/repo.git
+    silent: true
+    cmds:
+      - task: fork:sync:internal
+      - |
+        _default_branch=$(cat /tmp/task_default_branch 2>/dev/null)
+        _current_branch=$(cat /tmp/task_current_branch 2>/dev/null)
+
+        # 恢复到原来的分支
+        if [[ "$_current_branch" != "$_default_branch" ]]; then
+          git checkout $_current_branch 2>/dev/null
+          echo "📍 已返回原分支: $_current_branch"
+        fi
+        rm -f /tmp/task_default_branch /tmp/task_current_branch
+
+  fork:update:
+    desc: "从上游同步并创建新分支"
+    summary: |
+      从上游同步最新代码并创建新的开发分支，适合开始新功能开发
+
+      前置条件:
+        1. 必须配置 upstream 远程仓库
+           git remote add upstream <上游仓库URL>
+        2. 工作区必须干净（无未提交更改）
+
+      执行流程:
+        1. 从 upstream 同步最新代码
+        2. 创建带时间戳的开发分支 (dev/YYMMDD-HHMM)
+        3. 你将直接进入新分支
+
+      使用场景:
+        - 准备开始新功能开发
+        - 需要基于最新的上游代码
+
+      与 fork:sync 的区别:
+        - fork:sync: 同步后返回原分支
+        - fork:update: 同步后创建新分支
+    silent: true
+    cmds:
+      - task: fork:sync:internal
+      - task: branch:dev
+
+  branch:dev:
+    desc: "创建带时间戳的临时开发分支"
+    silent: true
+    cmds:
+      - |
+        _ts=$(date "+%y%m%d-%H%M")
+        # 使用内部任务获取默认分支
+        _default_branch=$(task get-default-branch)
+        # 切换到默认分支
+        git checkout $_default_branch
+        # 创建临时分支
+        git checkout -b "dev/${_ts}"
+        echo "✅ 已创建临时分支: dev/${_ts} (基于 $_default_branch)"
+
+  destroy:clear:
+    desc: "清除 Git 历史（危险操作）"
+    summary: |
+      ⚠️  危险操作：清除当前分支的所有 Git 历史记录
+
+      此操作会:
+        1. 备份当前分支到 backup/YY/MM/DD/HHMM/<分支名>
+        2. 清除 Git 缓存
+        3. 创建全新的初始提交
+        4. 强制推送到远程仓库
+
+      警告:
+        - 所有历史提交记录将被清除
+        - 远程仓库历史将被重写
+        - 协作者需要重新克隆仓库
+        - 此操作不可逆
+
+      备份位置:
+        本地分支: backup/YY/MM/DD/HHMM/<原分支名>
+        示例: backup/25/01/04/1430/main
+
+      清理备份:
+         task git:destroy:cleanup
+
+      建议在执行前:
+        1. 确认当前分支名称
+        2. 确保远程分支名称正确
+        3. 通知所有协作者
+    silent: true
+    cmds:
+      - |
+        _branch_name_current=$(git branch --show-current 2>/dev/null || echo "")
+        _branch_name_backup="backup/$(date +'%y/%m/%d/%H%M')/${_branch_name_current}"
+        if [[ "${_branch_name_current}" == "" ]]; then
+          echo "当前分支为空，跳过清除 git 缓存"
+          exit 0
+        fi
+        echo "📦 备份当前分支到: ${_branch_name_backup}"
+        git add -A && git commit -am "clear commit" --no-verify || true
+        git rm -r --cached .
+        git branch -m ${_branch_name_backup}
+        git checkout --orphan ${_branch_name_current}
+        git add -A && git commit -am "clear commit" --no-verify || true
+        git push -f origin ${_branch_name_current}
+        echo "✅ 备份分支: ${_branch_name_backup}"
+
+  destroy:cleanup:
+    desc: "删除所有本地备份分支"
+    summary: |
+      删除所有备份分支，释放本地空间
+
+      备份分支命名规则:
+        backup/YY/MM/DD/HHMM/<原分支名>
+
+      示例:
+        backup/25/01/04/1430/main
+        backup/25/01/03/0912/feature
+
+      按日期清理:
+        # 清理特定日期的备份
+        git branch -D $(git branch | grep '^backup/25/01/04/')
+
+      按时间清理:
+        # 清理特定时间的备份
+        git branch -D $(git branch | grep '^backup/25/01/04/1430/')
+
+      执行前建议:
+        1. 使用 git branch | grep backup 查看所有备份
+        2. 确认不再需要这些备份
+    silent: true
+    cmds:
+      - |
+        _backup_branches=$(git branch | grep '^backup/' || true)
+        if [[ -z "$_backup_branches" ]]; then
+          echo "✅ 没有找到备份分支"
+          exit 0
+        fi
+        echo "🗑️  将删除以下备份分支:"
+        echo "$_backup_branches"
+        echo ""
+        git branch -D $_backup_branches
+        echo "✅ 已删除所有备份分支"
+
+  destroy:reinit:
+    desc: "重新初始化 Git 仓库（危险操作）"
+    summary: |
+      ⚠️  极度危险操作：完全重新初始化 Git 仓库
+
+      此操作会:
+        1. 删除 .git 目录（所有 Git 历史）
+        2. 重新初始化 Git 仓库
+        3. 创建新的初始提交
+        4. 添加最新的 git tag
+        5. 恢复 remote origin 配置
+        6. 调用 destroy:clear 清除远程历史
+
+      警告:
+        - 所有 Git 历史将永久丢失
+        - 所有分支历史将被清除
+        - 所有标签将被删除
+        - 远程仓库历史将被完全重写
+        - 协作者必须重新克隆
+        - 此操作不可逆
+
+      使用场景:
+        仅在以下情况考虑使用:
+        - 项目完全重新开始
+        - 需要清除所有敏感信息
+        - 仓库被严重破坏无法恢复
+
+      替代方案:
+        考虑使用 git filter-repo 或 BFG Repo-Cleaner
+        来清除特定文件或历史，而非完全重新初始化
+    cmds:
+      - |
+        _remote_url=$(git remote get-url origin | head -n1)
+        rm -rf .git
+        git init --initial-branch=main
+        touch README.md
+        git add --all
+        git commit -m "first commit" --no-verify || true
+        git tag -a {{.GIT_TAG_LATEST}} -m "init"
+        git remote add origin ${_remote_url}
+        git config push.autoSetupRemote true
+      - task: destroy:clear
