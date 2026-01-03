@@ -231,6 +231,7 @@ tasks:
 
   destroy:clear:
     desc: "清除 Git 历史（危险操作）"
+    prompt: "⚠️  此操作将清除所有 Git 历史（不可逆），确定继续吗？"
     summary: |
       ⚠️  危险操作：清除当前分支的所有 Git 历史记录
 
@@ -277,6 +278,7 @@ tasks:
 
   destroy:cleanup:
     desc: "删除所有本地备份分支"
+    prompt: "确定要删除所有本地备份分支吗？"
     summary: |
       删除所有备份分支，释放本地空间
 
@@ -314,6 +316,7 @@ tasks:
 
   destroy:reinit:
     desc: "重新初始化 Git 仓库（危险操作）"
+    prompt: "⚠️⚠️⚠️  极度危险：将完全删除 Git 历史并重新初始化（不可逆），确定继续吗？"
     summary: |
       ⚠️  极度危险操作：完全重新初始化 Git 仓库
 
