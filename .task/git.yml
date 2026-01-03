@@ -198,17 +198,40 @@ tasks:
 
   branch:dev:
     desc: "创建带时间戳的临时开发分支"
+    summary: |
+      创建带时间戳的临时开发分支
+
+      分支命名格式:
+        dev/YYMMDD-<后缀>
+
+      用法:
+        # 不带参数（使用当前时间作为后缀）
+        task git:branch:dev
+
+        # 自定义后缀（任意字符串）
+        task git:branch:dev feature-a
+        task git:branch:dev fix-login
+        task git:branch:dev 2359
+
+      示例:
+        task git:branch:dev              # dev/260104-0237
+        task git:branch:dev feature-a     # dev/260104-feature-a
+        task git:branch:dev fix-login     # dev/260104-fix-login
+        task git:branch:dev 2359          # dev/260104-2359
     silent: true
     cmds:
       - |
-        _ts=$(date "+%y%m%d-%H%M")
         # 获取默认分支名（直接使用 git 命令）
         _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
         # 切换到默认分支
         git checkout $_default_branch
+        # 生成分支名：日期+时间（支持自定义时间部分）
+        _date_prefix=$(date "+%y%m%d")
+        _time_suffix="{{.CLI_ARGS}}"
+        _branch_name="dev/${_date_prefix}-${_time_suffix:-$(date "+%H%M")}"
         # 创建临时分支
-        git checkout -b "dev/${_ts}"
-        echo "✅ 已创建临时分支: dev/${_ts} (基于 $_default_branch)"
+        git checkout -b "${_branch_name}"
+        echo "✅ 已创建临时分支: ${_branch_name} (基于 $_default_branch)"
 
   destroy:clear:
     desc: "清除 Git 历史（危险操作）"
