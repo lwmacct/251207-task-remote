@@ -40,6 +40,23 @@ tasks:
         git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
         git push
 
+  push:merge:
+    desc: "提交并合并到主分支"
+    silent: true
+    summary: |
+      先执行 push，再执行 merge
+
+      用法:
+        task git:push:merge
+
+      说明:
+        - 使用各自任务的默认消息
+        - push 消息: "chore YYYY-MM-DD HH:MM:SS CST"
+        - merge 消息: "merge <分支名> YYYY-MM-DD HH:MM:SS"
+    cmds:
+      - task: push
+      - task: merge
+
   merge:
     desc: "合并当前分支到主分支"
     silent: true
