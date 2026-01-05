@@ -40,6 +40,77 @@ tasks:
         git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
         git push
 
+  merge:
+    desc: "合并当前分支到主分支"
+    summary: |
+      将当前分支合并到默认主分支（main/master）
+
+      执行流程:
+        1. 检查工作区状态（必须干净）
+        2. 推送当前分支（如有未推送更改）
+        3. 切换到默认分支
+        4. 拉取最新代码
+        5. 合并当前分支
+        6. 推送到远程
+        7. 返回原分支
+
+      示例:
+        task git:merge                # 使用默认 merge 消息
+        task git:merge "合并功能A"    # 使用自定义 merge 消息
+
+      合并消息:
+        - 不指定时自动生成: "merge <分支名> YYYY-MM-DD HH:MM:SS"
+        - 可通过参数指定自定义消息
+    vars:
+      MERGE_MESSAGE:
+        sh: echo "merge {{.GIT_BRANCH}} $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+    cmds:
+      - |
+        # 获取分支信息
+        _current_branch=$(git branch --show-current)
+        _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+
+        # 检查是否已在主分支
+        if [[ "$_current_branch" == "$_default_branch" ]]; then
+          echo "⚠️  当前已在主分支 ($_default_branch)，无需合并"
+          exit 0
+        fi
+
+        # 检查工作区状态
+        if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+          echo "⚠️  检测到未提交的更改，请先提交或 stash"
+          exit 1
+        fi
+
+        echo "📍 当前分支: $_current_branch"
+        echo "🎯 目标分支: $_default_branch"
+
+        # 推送当前分支确保远程最新
+        echo "📤 推送当前分支..."
+        git push origin $_current_branch
+
+        # 切换到主分支
+        echo "🔄 切换到主分支..."
+        git checkout $_default_branch
+
+        # 拉取最新代码
+        echo "📥 拉取最新代码..."
+        git pull origin $_default_branch
+
+        # 合并当前分支
+        echo "🔀 合并 $_current_branch..."
+        git merge $_current_branch -m "{{.CLI_ARGS | default .MERGE_MESSAGE}}"
+
+        # 推送
+        echo "📤 推送到远程..."
+        git push origin $_default_branch
+
+        # 返回原分支
+        echo "🔄 返回原分支..."
+        git checkout $_current_branch
+
+        echo "✅ 已完成合并: $_current_branch -> $_default_branch"
+
   tag:
     desc: "列出所有 Git 标签（按时间排序）"
     silent: true
