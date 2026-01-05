@@ -73,44 +73,44 @@ tasks:
 
         # 检查是否已在主分支
         if [[ "$_current_branch" == "$_default_branch" ]]; then
-          echo "	⚠️  当前已在主分支 ($_default_branch)，无需合并"
+          echo "⚠️  当前已在主分支 ($_default_branch)，无需合并"
           exit 0
         fi
 
         # 检查工作区状态
         if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-          echo "	⚠️  检测到未提交的更改，请先提交或 stash"
+          echo "⚠️  检测到未提交的更改，请先提交或 stash"
           exit 1
         fi
 
-        echo "	📍 当前分支: $_current_branch"
-        echo "	🎯 目标分支: $_default_branch"
+        echo "📍 当前分支: $_current_branch"
+        echo "🎯 目标分支: $_default_branch"
 
         # 推送当前分支确保远程最新
-        echo "	📤 推送当前分支..."
+        echo "📤 推送当前分支..."
         git push origin $_current_branch | sed 's/^/	/'
 
         # 切换到主分支
-        echo "	🔄 切换到主分支..."
+        echo "🔄 切换到主分支..."
         git checkout $_default_branch 2>&1 | sed 's/^/	/' || true
 
         # 拉取最新代码
-        echo "	📥 拉取最新代码..."
+        echo "📥 拉取最新代码..."
         git pull origin $_default_branch 2>&1 | sed 's/^/	/' || true
 
         # 合并当前分支
-        echo "	🔀 合并 $_current_branch..."
+        echo "🔀 合并 $_current_branch..."
         git merge $_current_branch -m "{{.CLI_ARGS | default .MERGE_MESSAGE}}" 2>&1 | sed 's/^/	/' || true
 
         # 推送
-        echo "	📤 推送到远程..."
+        echo "📤 推送到远程..."
         git push origin $_default_branch | sed 's/^/	/'
 
         # 返回原分支
-        echo "	🔄 返回原分支..."
+        echo "🔄 返回原分支..."
         git checkout $_current_branch 2>&1 | sed 's/^/	/' || true
 
-        echo "	✅ 已完成合并: $_current_branch -> $_default_branch"
+        echo "✅ 已完成合并: $_current_branch -> $_default_branch"
 
   tag:
     desc: "列出所有 Git 标签（按时间排序）"
