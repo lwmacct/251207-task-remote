@@ -58,15 +58,20 @@ tasks:
         版本等级: 1=major, 2=minor, 3=patch (默认 3)
         提交信息: 可选的标签说明文字
 
-      版本规则:
+      标准版本规则 (非 dev/* 分支):
         1 = major: 主版本 (v1.0.0 -> v2.0.0) - 破坏性变更
         2 = minor: 次版本 (v1.0.0 -> v1.1.0) - 新功能
         3 = patch: 补丁 (v1.0.0 -> v1.0.1) - bug 修复 (默认)
 
+      Dev 分支版本规则 (dev/* 前缀):
+        - major: 永远是 0
+        - minor: 第N次修改（上一个值的递增）
+        - patch: 时间值 YYMMDD
+
       示例:
-        task git:tag:next              # 创建 v1.0.1
-        task git:tag:next 2            # 创建 v1.1.0
-        task git:tag:next 1 "重大更新"  # 创建 v2.0.0
+        task git:tag:next              # main 分支: v1.0.1, dev 分支: v0.1.260104
+        task git:tag:next 2            # main 分支: v1.1.0, dev 分支: v0.2.260104
+        task git:tag:next 1 "重大更新"  # main 分支: v2.0.0, dev 分支: v0.1.260104
 
       执行流程:
         1. 更新 pyproject.toml 中的版本号
@@ -80,14 +85,36 @@ tasks:
         sh: |
           level="{{.VERSION_LEVEL}}"
           tag="{{.GIT_TAG_LATEST}}"
+          branch="{{.GIT_BRANCH}}"
           # 提取版本号部分 (去掉 v 前缀)
           version="${tag#v}"
           IFS='.' read -r major minor patch <<< "$version"
-          case "$level" in
-            1) echo "v$((major + 1)).0.0" ;;
-            2) echo "v${major}.$((minor + 1)).0" ;;
-            *) echo "v${major}.${minor}.$((patch + 1))" ;;
-          esac
+
+          # 检查是否为 dev 分支
+          if [[ "$branch" == dev/* ]]; then
+            # dev 分支规则: major=0, minor 递增, patch=YYMMDD
+            new_major=0
+            # 获取当前分支的所有标签，找出最新的 dev 版本
+            dev_tags=$(git tag --sort=-v:refname | grep '^v0\.' || true)
+            if [[ -n "$dev_tags" ]]; then
+              # 从最新的 dev 标签中提取 minor 版本
+              latest_dev_tag=$(echo "$dev_tags" | head -n 1)
+              latest_version="${latest_dev_tag#v}"
+              IFS='.' read -r _ latest_minor _ <<< "$latest_version"
+              new_minor=$((latest_minor + 1))
+            else
+              new_minor=1
+            fi
+            new_patch=$(TZ='Asia/Shanghai' date '+%y%m%d')
+            echo "v${new_major}.${new_minor}.${new_patch}"
+          else
+            # 标准语义化版本规则
+            case "$level" in
+              1) echo "v$((major + 1)).0.0" ;;
+              2) echo "v${major}.$((minor + 1)).0" ;;
+              *) echo "v${major}.${minor}.$((patch + 1))" ;;
+            esac
+          fi
     cmds:
       - echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | { read ver; sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1; } || true
       - task: push
