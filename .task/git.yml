@@ -69,10 +69,10 @@ tasks:
       - |
         # 获取分支信息
         _current_branch=$(git branch --show-current)
-        _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' ||
-                         git config init.defaultbranch 2>/dev/null ||
-                         git branch -r | grep 'origin/HEAD' | sed 's@.*origin/HEAD -> @@' | sed 's@origin/@@' ||
-                         echo "main")
+        _default_branch=$(
+          git branch -r | grep -E 'origin/(main|master)' | head -1 | sed 's@.*origin/@@' ||
+          echo "main"
+        )
 
         # 检查是否已在主分支
         if [[ "$_current_branch" == "$_default_branch" ]]; then
@@ -91,27 +91,27 @@ tasks:
 
         # 推送当前分支确保远程最新
         echo "📤 推送当前分支..."
-        git push origin $_current_branch 2>&1 | sed 's/^/  /'
+        git push origin $_current_branch 2>&1 | sed 's/^/   /'
 
         # 切换到主分支
         echo "🔄 切换到主分支..."
-        git checkout $_default_branch 2>&1 | sed 's/^/  /'
+        git checkout $_default_branch 2>&1 | sed 's/^/   /'
 
         # 拉取最新代码
         echo "📥 拉取最新代码..."
-        git pull origin $_default_branch 2>&1 | sed 's/^/  /'
+        git pull origin $_default_branch 2>&1 | sed 's/^/   /'
 
         # 合并当前分支
         echo "🔀 合并 $_current_branch..."
-        git merge $_current_branch -m "{{.CLI_ARGS | default .MERGE_MESSAGE}}" 2>&1 | sed 's/^/  /'
+        git merge $_current_branch -m "{{.CLI_ARGS | default .MERGE_MESSAGE}}" 2>&1 | sed 's/^/   /'
 
         # 推送
         echo "📤 推送到远程..."
-        git push origin $_default_branch 2>&1 | sed 's/^/  /'
+        git push origin $_default_branch 2>&1 | sed 's/^/   /'
 
         # 返回原分支
         echo "🔄 返回原分支..."
-        git checkout $_current_branch 2>&1 | sed 's/^/  /'
+        git checkout $_current_branch 2>&1 | sed 's/^/   /'
 
         echo "✅ 已完成合并: $_current_branch -> $_default_branch"
 
