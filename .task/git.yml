@@ -150,20 +150,26 @@ tasks:
         版本等级: 1=major, 2=minor, 3=patch (默认 3)
         提交信息: 可选的标签说明文字
 
-      标准版本规则 (非 dev/* 分支):
+      标准版本规则 (major > 0):
         1 = major: 主版本 (v1.0.0 -> v2.0.0) - 破坏性变更
         2 = minor: 次版本 (v1.0.0 -> v1.1.0) - 新功能
         3 = patch: 补丁 (v1.0.0 -> v1.0.1) - bug 修复 (默认)
 
-      Dev 分支版本规则 (dev/* 前缀):
+      开发版本规则 (major = 0 或 dev/* 分支):
         - major: 永远是 0
         - minor: 第N次修改（上一个值的递增）
         - patch: 时间值 YYMMDD
 
       示例:
-        task git:tag:next              # main 分支: v1.0.1, dev 分支: v0.1.260104
-        task git:tag:next 2            # main 分支: v1.1.0, dev 分支: v0.2.260104
-        task git:tag:next 1 "重大更新"  # main 分支: v2.0.0, dev 分支: v0.1.260104
+        # 当前版本 v0.1.260104 (任意分支)
+        task git:tag:next              # v0.2.260109 (dev 规则: major=0)
+        task git:tag:next 2            # v0.3.260109 (dev 规则: minor 递增)
+        task git:tag:next 1 "重大更新"  # v0.4.260109 (dev 规则: 忽略 level)
+
+        # 当前版本 v1.0.0 (非 dev 分支)
+        task git:tag:next              # v1.0.1 (标准规则: patch)
+        task git:tag:next 2            # v1.1.0 (标准规则: minor)
+        task git:tag:next 1 "重大更新"  # v2.0.0 (标准规则: major)
 
       执行流程:
         1. 更新 pyproject.toml 中的版本号
@@ -182,9 +188,9 @@ tasks:
           version="${tag#v}"
           IFS='.' read -r major minor patch <<< "$version"
 
-          # 检查是否为 dev 分支
-          if [[ "$branch" == dev/* ]]; then
-            # dev 分支规则: major=0, minor 递增, patch=YYMMDD
+          # 检查是否为 dev 分支 或者 major=0
+          if [[ "$branch" == dev/* ]] || [[ "$major" == "0" ]]; then
+            # dev 规则: major=0, minor 递增, patch=YYMMDD
             new_major=0
             # 获取当前分支的所有标签，找出最新的 dev 版本
             dev_tags=$(git tag --sort=-v:refname | grep '^v0\.' || true)
