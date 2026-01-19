@@ -350,6 +350,8 @@ tasks:
         _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
         # 切换到默认分支
         git checkout $_default_branch
+        # 拉取远程最新代码
+        git pull origin $_default_branch
         # 生成分支名：日期+时间（支持自定义时间部分）
         _date_prefix=$(date "+%y%m%d")
         _time_suffix="{{.CLI_ARGS}}"
