@@ -214,7 +214,14 @@ tasks:
             esac
           fi
     cmds:
-      - echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | { read ver; sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1; } || true
+      - |
+        echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | {
+          read ver
+          sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1 || true
+          if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+            jq --arg ver "$ver" '.version = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
+          fi
+        } || true
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
