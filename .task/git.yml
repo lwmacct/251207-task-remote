@@ -8,7 +8,17 @@ tasks:
     silent: true
     cmds:
       - |
-        [ -f .git/hooks/pre-commit ] && cat .git/hooks/pre-commit | grep -c pre-commit >/dev/null || (command -v pre-commit >/dev/null && pre-commit install)
+        if [ -f .git/hooks/pre-commit ] && grep -q pre-commit .git/hooks/pre-commit; then
+          exit 0
+        fi
+
+        if command -v pre-commit >/dev/null 2>&1; then
+          if ! pre-commit install >/dev/null 2>&1; then
+            echo "pre-commit 安装钩子失败，已跳过"
+          fi
+        else
+          echo "pre-commit 未安装，跳过钩子安装"
+        fi
 
   push:
     desc: "暂存、提交并推送所有更改"
