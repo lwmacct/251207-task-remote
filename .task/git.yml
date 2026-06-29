@@ -190,9 +190,9 @@ tasks:
       VERSION_LEVEL: '{{index (splitList " " .CLI_ARGS) 0 | default "3"}}'
       TAG_MESSAGE: '{{slice (splitList " " .CLI_ARGS) 1 | join " "}}'
       GIT_TAG_NEXT:
-        sh: '{{.TASK_REMOTE_CLI}} version next "{{.VERSION_LEVEL}}" --cwd "$(pwd)"'
+        sh: '{{.TASK_REMOTE_CLI}} version next "{{.VERSION_LEVEL}}"'
     cmds:
-      - '{{.TASK_REMOTE_CLI}} version set "{{.GIT_TAG_NEXT}}" --cwd "$(pwd)"'
+      - '{{.TASK_REMOTE_CLI}} version set "{{.GIT_TAG_NEXT}}"'
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
