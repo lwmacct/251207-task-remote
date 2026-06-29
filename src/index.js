@@ -3,7 +3,7 @@
 const versionCommand = require("./version");
 
 function usage() {
-  console.error("Usage: 251207-task-remote version set <version> [--cwd <path>]");
+  console.error("Usage: 251207-task-remote version <next|set> [...args]");
 }
 
 function main(argv = process.argv.slice(2)) {

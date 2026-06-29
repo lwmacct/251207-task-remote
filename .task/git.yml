@@ -228,12 +228,9 @@ tasks:
           fi
     cmds:
       - |
-        echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | {
-          read ver
-          if [ -f package.json ]; then
-            npx --yes @lwmacct/251207-task-remote version set "$ver"
-          fi
-        }
+        if [ -f package.json ]; then
+          npx --yes @lwmacct/251207-task-remote version set "{{.GIT_TAG_NEXT}}"
+        fi
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
