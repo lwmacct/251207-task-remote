@@ -186,22 +186,13 @@ tasks:
         2. 提交并推送更改
         3. 创建 annotated tag
         4. 推送 tag 到远程仓库
-
-      调试:
-        - 本地验证 npx CLI 打包行为见 docs/release.md
     vars:
       VERSION_LEVEL: '{{index (splitList " " .CLI_ARGS) 0 | default "3"}}'
       TAG_MESSAGE: '{{slice (splitList " " .CLI_ARGS) 1 | join " "}}'
       GIT_TAG_NEXT:
-        sh: |
-          tmp_dir=$(mktemp -d)
-          trap 'rm -rf "$tmp_dir"' EXIT
-          npx --yes --prefix "$tmp_dir" @lwmacct/251207-task-remote version next "{{.VERSION_LEVEL}}" --cwd "$(pwd)"
+        sh: '{{.TASK_REMOTE_CLI}} version next "{{.VERSION_LEVEL}}" --cwd "$(pwd)"'
     cmds:
-      - |
-        tmp_dir=$(mktemp -d)
-        trap 'rm -rf "$tmp_dir"' EXIT
-        npx --yes --prefix "$tmp_dir" @lwmacct/251207-task-remote version set "{{.GIT_TAG_NEXT}}" --cwd "$(pwd)"
+      - '{{.TASK_REMOTE_CLI}} version set "{{.GIT_TAG_NEXT}}" --cwd "$(pwd)"'
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
