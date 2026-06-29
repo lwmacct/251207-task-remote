@@ -186,6 +186,9 @@ tasks:
         2. 提交并推送更改
         3. 创建 annotated tag
         4. 推送 tag 到远程仓库
+
+      调试:
+        - 本地验证 npx CLI 打包行为见 docs/release.md
     vars:
       VERSION_LEVEL: '{{index (splitList " " .CLI_ARGS) 0 | default "3"}}'
       TAG_MESSAGE: '{{slice (splitList " " .CLI_ARGS) 1 | join " "}}'
@@ -228,15 +231,7 @@ tasks:
         echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | {
           read ver
           if [ -f package.json ]; then
-            if node -e "const p=require('./package.json'); process.exit(p.name === '@lwmacct/251207-task-remote' ? 0 : 1)" >/dev/null 2>&1 && [ -f src/index.js ]; then
-              tmp_dir=$(mktemp -d)
-              trap 'rm -rf "$tmp_dir"' EXIT
-              npm pack --silent --pack-destination "$tmp_dir" >/dev/null
-              package_file=$(find "$tmp_dir" -name '*.tgz' -print -quit)
-              npx --yes --package "$package_file" 251207-task-remote version set "$ver"
-            else
-              npx --yes @lwmacct/251207-task-remote version set "$ver"
-            fi
+            npx --yes @lwmacct/251207-task-remote version set "$ver"
           fi
         }
       - task: push
