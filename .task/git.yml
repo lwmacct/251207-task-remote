@@ -151,7 +151,7 @@ tasks:
   tag:next:
     desc: "创建并推送新版本标签（语义化版本）"
     summary: |
-      创建并推送语义化版本标签，自动更新 pyproject.toml 并提交
+      创建并推送语义化版本标签，自动更新 npm package 版本并提交
 
       用法:
         task git:tag:next [版本等级] [提交信息]
@@ -182,7 +182,7 @@ tasks:
         task git:tag:next 1 "重大更新"  # v2.0.0 (标准规则: major)
 
       执行流程:
-        1. 更新 pyproject.toml 中的版本号
+        1. 更新 package.json 和 package-lock.json 中的版本号
         2. 提交并推送更改
         3. 创建 annotated tag
         4. 推送 tag 到远程仓库
@@ -227,11 +227,18 @@ tasks:
       - |
         echo "{{.GIT_TAG_NEXT}}" | sed -r 's/^v//' | {
           read ver
-          sed -r 's|^(version =).*|\1 "'"$ver"'"|' pyproject.toml -i >/dev/null 2>&1 || true
-          if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
-            jq --arg ver "$ver" '.version = $ver' package.json > package.json.tmp && mv package.json.tmp package.json
+          if [ -f package.json ]; then
+            if node -e "const p=require('./package.json'); process.exit(p.name === '@lwmacct/251207-task-remote' ? 0 : 1)" >/dev/null 2>&1 && [ -f src/index.js ]; then
+              tmp_dir=$(mktemp -d)
+              trap 'rm -rf "$tmp_dir"' EXIT
+              npm pack --silent --pack-destination "$tmp_dir" >/dev/null
+              package_file=$(find "$tmp_dir" -name '*.tgz' -print -quit)
+              npx --yes --package "$package_file" 251207-task-remote version set "$ver"
+            else
+              npx --yes @lwmacct/251207-task-remote version set "$ver"
+            fi
           fi
-        } || true
+        }
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
