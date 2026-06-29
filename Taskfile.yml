@@ -21,10 +21,6 @@ includes:
     taskfile: .task/git.yml
     optional: true
 
-  go:
-    taskfile: .task/go.yml
-    optional: true
-
   gh:
     taskfile: .task/gh.yml
     optional: true
