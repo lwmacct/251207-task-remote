@@ -17,9 +17,9 @@ npx --yes --package "$package_file" 251207-task-remote version set "0.6.260629"
 这等价于模拟发布后的调用方式：
 
 ```bash
-npx --yes --prefix "$(mktemp -d)" @lwmacct/251207-task-remote version set "0.6.260629" --cwd "$(pwd)"
+npx --yes @lwmacct/251207-task-remote version set "0.6.260629"
 ```
 
 这个方式适合验证 `package.json#bin`、可执行权限、以及最终进入 npm 包的文件是否符合预期。
 
-如果 `.task` 需要依赖一个新的 CLI 子命令，必须先发布包含该子命令的 npm 版本。等新版本在 npm 上可用后，再更新 `.task` 使用正式的 `npx --yes --prefix <tmp-dir> @lwmacct/251207-task-remote ... --cwd <project>` 调用。不要在同一个版本里让 `.task` 依赖尚未发布的 CLI 功能。
+如果 `.task` 需要依赖一个新的 CLI 子命令，必须先发布包含该能力的 npm 版本。等新版本在 npm 上可用后，再更新 `.task` 使用正式的 `npx --yes @lwmacct/251207-task-remote ...` 调用。不要在同一个版本里让 `.task` 依赖尚未发布的 CLI 功能。

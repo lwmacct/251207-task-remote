@@ -194,38 +194,9 @@ tasks:
       TAG_MESSAGE: '{{slice (splitList " " .CLI_ARGS) 1 | join " "}}'
       GIT_TAG_NEXT:
         sh: |
-          level="{{.VERSION_LEVEL}}"
-          tag="{{.GIT_TAG_LATEST}}"
-          branch="{{.GIT_BRANCH}}"
-          # 提取版本号部分 (去掉 v 前缀)
-          version="${tag#v}"
-          IFS='.' read -r major minor patch <<< "$version"
-
-          # 检查是否为 dev 分支 或者 major=0
-          if [[ "$branch" == dev/* ]] || [[ "$major" == "0" ]]; then
-            # dev 规则: major=0, minor 递增, patch=YYMMDD
-            new_major=0
-            # 获取当前分支的所有标签，找出最新的 dev 版本
-            dev_tags=$(git tag --sort=-v:refname | grep '^v0\.' || true)
-            if [[ -n "$dev_tags" ]]; then
-              # 从最新的 dev 标签中提取 minor 版本
-              latest_dev_tag=$(echo "$dev_tags" | head -n 1)
-              latest_version="${latest_dev_tag#v}"
-              IFS='.' read -r _ latest_minor _ <<< "$latest_version"
-              new_minor=$((latest_minor + 1))
-            else
-              new_minor=1
-            fi
-            new_patch=$(TZ='Asia/Shanghai' date '+%y%m%d')
-            echo "v${new_major}.${new_minor}.${new_patch}"
-          else
-            # 标准语义化版本规则
-            case "$level" in
-              1) echo "v$((major + 1)).0.0" ;;
-              2) echo "v${major}.$((minor + 1)).0" ;;
-              *) echo "v${major}.${minor}.$((patch + 1))" ;;
-            esac
-          fi
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          npx --yes --prefix "$tmp_dir" @lwmacct/251207-task-remote version next "{{.VERSION_LEVEL}}" --cwd "$(pwd)"
     cmds:
       - |
         tmp_dir=$(mktemp -d)
