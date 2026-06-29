@@ -238,7 +238,7 @@ function resolveVersionTypes(type, cwd) {
   }
 
   if (types.length === 0) {
-    throw new Error("No supported version file found. Use --type npm or --type python.");
+    return [];
   }
 
   return types;
