@@ -1,5 +1,5 @@
 const { spawnSync } = require("node:child_process");
-const { existsSync } = require("node:fs");
+const { existsSync, readFileSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
 
 function parseGlobalArgs(argv) {
@@ -23,8 +23,30 @@ function parseGlobalArgs(argv) {
 
 function parseSetArgs(argv) {
   const { args, cwd } = parseGlobalArgs(argv);
+  const options = {
+    version: null,
+    cwd,
+    type: "all",
+  };
+  const positionals = [];
 
-  return { version: args[0], cwd };
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === "--type") {
+      const value = args[i + 1];
+      if (!value) {
+        throw new Error("--type requires a value");
+      }
+      options.type = value;
+      args.splice(i, 2);
+      i -= 1;
+      continue;
+    }
+
+    positionals.push(args[i]);
+  }
+
+  options.version = positionals[0];
+  return options;
 }
 
 function parseNextArgs(argv) {
@@ -174,19 +196,77 @@ function nextVersion(argv) {
 }
 
 function setVersion(argv) {
-  const { version, cwd } = parseSetArgs(argv);
+  const { version, cwd, type } = parseSetArgs(argv);
   if (!version) {
     throw new Error("version set requires a version");
   }
 
+  const normalizedVersion = version.replace(/^v/, "");
+  const resolvedTypes = resolveVersionTypes(type, cwd);
+
+  for (const resolvedType of resolvedTypes) {
+    if (resolvedType === "npm") {
+      setNpmVersion(normalizedVersion, cwd);
+      continue;
+    }
+
+    if (resolvedType === "python") {
+      setPythonVersion(normalizedVersion, cwd);
+      continue;
+    }
+
+    throw new Error(`Unsupported version type: ${resolvedType}`);
+  }
+}
+
+function resolveVersionTypes(type, cwd) {
+  if (type === "npm" || type === "python") {
+    return [type];
+  }
+
+  if (type !== "all" && type !== "auto") {
+    throw new Error(`Unsupported version type: ${type}`);
+  }
+
+  const types = [];
+  if (existsSync(path.join(cwd, "package.json"))) {
+    types.push("npm");
+  }
+
+  if (existsSync(path.join(cwd, "pyproject.toml"))) {
+    types.push("python");
+  }
+
+  if (types.length === 0) {
+    throw new Error("No supported version file found. Use --type npm or --type python.");
+  }
+
+  return types;
+}
+
+function setNpmVersion(version, cwd) {
   const packageJson = path.join(cwd, "package.json");
   if (!existsSync(packageJson)) {
     throw new Error(`package.json not found in ${cwd}`);
   }
 
-  const normalizedVersion = version.replace(/^v/, "");
-  run("npm", ["version", normalizedVersion, "--no-git-tag-version", "--allow-same-version"], cwd);
+  run("npm", ["version", version, "--no-git-tag-version", "--allow-same-version"], cwd);
   run("npm", ["install", "--package-lock-only", "--ignore-scripts"], cwd);
+}
+
+function setPythonVersion(version, cwd) {
+  const pyprojectPath = path.join(cwd, "pyproject.toml");
+  if (!existsSync(pyprojectPath)) {
+    throw new Error(`pyproject.toml not found in ${cwd}`);
+  }
+
+  const content = readFileSync(pyprojectPath, "utf8");
+  const nextContent = content.replace(/^version\s*=\s*["'][^"']*["']/m, `version = "${version}"`);
+  if (nextContent === content) {
+    throw new Error(`version field not found in ${pyprojectPath}`);
+  }
+
+  writeFileSync(pyprojectPath, nextContent);
 }
 
 function versionCommand(argv) {
@@ -200,7 +280,7 @@ function versionCommand(argv) {
     return;
   }
 
-  throw new Error("Usage: 251207-task-remote version <next|set> [...args]");
+  throw new Error("Usage: 251207-task-remote version set <version> [--type <all|npm|python>]");
 }
 
 module.exports = versionCommand;

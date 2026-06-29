@@ -4,6 +4,7 @@ const versionCommand = require("./version");
 
 function usage() {
   console.error("Usage: 251207-task-remote version <next|set> [...args]");
+  console.error("Example: 251207-task-remote version set 1.2.3");
 }
 
 function main(argv = process.argv.slice(2)) {

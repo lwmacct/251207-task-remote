@@ -228,9 +228,9 @@ tasks:
           fi
     cmds:
       - |
-        if [ -f package.json ]; then
-          npx --yes @lwmacct/251207-task-remote version set "{{.GIT_TAG_NEXT}}"
-        fi
+        tmp_dir=$(mktemp -d)
+        trap 'rm -rf "$tmp_dir"' EXIT
+        npx --yes --prefix "$tmp_dir" @lwmacct/251207-task-remote version set "{{.GIT_TAG_NEXT}}" --cwd "$(pwd)"
       - task: push
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"

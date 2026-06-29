@@ -1,6 +1,6 @@
 {
   "name": "@lwmacct/251207-task-remote",
-  "version": "0.6.260629",
+  "version": "0.7.260630",
   "description": "",
   "main": "src/index.js",
   "bin": {
