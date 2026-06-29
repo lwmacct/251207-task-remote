@@ -52,6 +52,29 @@ npx --yes @lwmacct/251207-task-remote lock hash --type npm
 
 手动触发的示例 workflow 见 `.github/workflows/cache-example.yml`。
 
+## Git 辅助输出
+
+这些命令只输出值，不修改 git 状态。Taskfile 可以用它们减少 shell 字符串解析。
+
+输出默认分支名：
+
+```bash
+npx --yes @lwmacct/251207-task-remote git default-branch
+```
+
+生成临时开发分支名：
+
+```bash
+npx --yes @lwmacct/251207-task-remote git dev-branch-name
+npx --yes @lwmacct/251207-task-remote git dev-branch-name feature-a
+```
+
+生成备份分支名：
+
+```bash
+npx --yes @lwmacct/251207-task-remote git backup-branch-name main
+```
+
 ## Taskfile 远程更新
 
 Task 的 remote taskfiles 仍是实验特性，使用前需要启用：

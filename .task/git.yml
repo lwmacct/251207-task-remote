@@ -96,10 +96,7 @@ tasks:
       - |
         # 获取分支信息
         _current_branch=$(git branch --show-current)
-        _default_branch=$(
-          git branch -r | grep -E 'origin/(main|master)' | head -1 | sed 's@.*origin/@@' ||
-          echo "main"
-        )
+        _default_branch=$({{.TASK_REMOTE_CLI}} git default-branch)
 
         # 检查是否已在主分支
         if [[ "$_current_branch" == "$_default_branch" ]]; then
@@ -211,8 +208,8 @@ tasks:
           exit 0
         fi
 
-        # 获取默认分支名（直接使用 git 命令）
-        _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+        # 获取默认分支名
+        _default_branch=$({{.TASK_REMOTE_CLI}} git default-branch)
 
         # 保存当前分支名
         _current_branch=$(git branch --show-current)
@@ -324,16 +321,14 @@ tasks:
     silent: true
     cmds:
       - |
-        # 获取默认分支名（直接使用 git 命令）
-        _default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+        # 获取默认分支名
+        _default_branch=$({{.TASK_REMOTE_CLI}} git default-branch)
         # 切换到默认分支
         git checkout $_default_branch
         # 拉取远程最新代码
         git pull origin $_default_branch
         # 生成分支名：日期+时间（支持自定义时间部分）
-        _date_prefix=$(date "+%y%m%d")
-        _time_suffix="{{.CLI_ARGS}}"
-        _branch_name="dev/${_date_prefix}-${_time_suffix:-$(date "+%H%M")}"
+        _branch_name=$({{.TASK_REMOTE_CLI}} git dev-branch-name {{.CLI_ARGS}})
         # 创建临时分支
         git checkout -b "${_branch_name}"
         echo "✅ 已创建临时分支: ${_branch_name} (基于 $_default_branch)"
@@ -371,7 +366,7 @@ tasks:
     cmds:
       - |
         _branch_name_current=$(git branch --show-current 2>/dev/null || echo "")
-        _branch_name_backup="backup/$(date +'%y/%m/%d/%H%M')/${_branch_name_current}"
+        _branch_name_backup=$({{.TASK_REMOTE_CLI}} git backup-branch-name "${_branch_name_current}")
         if [[ "${_branch_name_current}" == "" ]]; then
           echo "当前分支为空，跳过清除 git 缓存"
           exit 0
