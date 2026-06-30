@@ -55,6 +55,10 @@ func setVersion(cwdValue string, versionType string, version string) error {
 			if err := setPythonVersion(cwd, normalized); err != nil {
 				return err
 			}
+		case "rust":
+			if err := setRustVersion(cwd, normalized); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("Unsupported version type: %s", typ)
 		}
@@ -63,7 +67,7 @@ func setVersion(cwdValue string, versionType string, version string) error {
 }
 
 func resolveVersionTypes(versionType string, cwd string) ([]string, error) {
-	if versionType == "npm" || versionType == "python" {
+	if versionType == "npm" || versionType == "python" || versionType == "rust" {
 		return []string{versionType}, nil
 	}
 	if versionType != "all" && versionType != "auto" {
@@ -76,6 +80,9 @@ func resolveVersionTypes(versionType string, cwd string) ([]string, error) {
 	}
 	if utilFileExists(filepath.Join(cwd, "pyproject.toml")) {
 		types = append(types, "python")
+	}
+	if utilFileExists(filepath.Join(cwd, "Cargo.toml")) {
+		types = append(types, "rust")
 	}
 	return types, nil
 }
@@ -137,6 +144,47 @@ func setPythonVersion(cwd string, version string) error {
 		return fmt.Errorf("version field not found in %s", pyprojectPath)
 	}
 	return os.WriteFile(pyprojectPath, next, 0o644)
+}
+
+func setRustVersion(cwd string, version string) error {
+	cargoTomlPath := filepath.Join(cwd, "Cargo.toml")
+	content, err := os.ReadFile(cargoTomlPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Cargo.toml not found in %s", cwd)
+		}
+		return err
+	}
+
+	packageName, err := cargoPackageField(content, "name")
+	if err != nil {
+		return err
+	}
+	next, err := setCargoPackageField(content, "version", version)
+	if err != nil {
+		return err
+	}
+
+	lockPath := filepath.Join(cwd, "Cargo.lock")
+	var nextLock []byte
+	if utilFileExists(lockPath) {
+		lockContent, err := os.ReadFile(lockPath)
+		if err != nil {
+			return err
+		}
+		nextLock, err = setCargoLockRootVersion(lockContent, packageName, version)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := os.WriteFile(cargoTomlPath, next, 0o644); err != nil {
+		return err
+	}
+	if nextLock != nil {
+		return os.WriteFile(lockPath, nextLock, 0o644)
+	}
+	return nil
 }
 
 func nextVersion(cwdValue string, level string, tag string, branch string, date string) (string, error) {
