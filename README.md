@@ -6,7 +6,6 @@
 
 ```bash
 go install github.com/lwmacct/251207-task-remote@latest
-251207-task-remote bump set v1.2.3
 ```
 
 确保 Go bin 目录在 `PATH` 中：
@@ -18,73 +17,25 @@ export PATH="$HOME/go/bin:$PATH"
 本仓库开发时可直接运行：
 
 ```bash
-go run . bump next 3
+go run . --help
 ```
 
-## 版本
-
-更新当前项目中所有支持的版本文件：
+命令用法以 CLI help 为准：
 
 ```bash
-251207-task-remote bump set v1.2.3
+251207-task-remote --help
 ```
 
-当前支持：
+## 能力
+
+- 版本递增与版本文件更新
+- lockfile 派生内容生成，用于 CI cache key，不修改真实 lockfile
+- Git 默认分支、临时分支名、备份分支名等辅助输出
+
+当前支持的版本文件：
 
 - npm: `package.json`、`package-lock.json`
 - Python: `pyproject.toml`
-
-只更新指定类型：
-
-```bash
-251207-task-remote bump set v1.2.3 --type npm
-251207-task-remote bump set v1.2.3 --type python
-```
-
-计算下一个版本：
-
-```bash
-251207-task-remote bump next 3
-```
-
-## Lockfile 缓存 Key
-
-生成忽略根包版本信息的 npm lockfile 派生文件：
-
-```bash
-251207-task-remote lock normalize --type npm --output tmp/cache/package-lock.deps.json
-```
-
-直接输出派生内容的 SHA256：
-
-```bash
-251207-task-remote lock hash --type npm
-```
-
-这个能力用于 CI cache key，不会修改真实的 `package-lock.json`。
-
-## Git 辅助输出
-
-这些命令只输出值，不修改 git 状态。Taskfile 可以用它们减少 shell 字符串解析。
-
-输出默认分支名：
-
-```bash
-251207-task-remote git default-branch
-```
-
-生成临时开发分支名：
-
-```bash
-251207-task-remote git dev-branch-name
-251207-task-remote git dev-branch-name feature-a
-```
-
-生成备份分支名：
-
-```bash
-251207-task-remote git backup-branch-name main
-```
 
 ## Taskfile 远程更新
 

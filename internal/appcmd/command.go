@@ -3,6 +3,7 @@ package appcmd
 import (
 	"context"
 
+	"github.com/lwmacct/251207-go-pkg-version/pkg/version"
 	"github.com/urfave/cli/v3"
 )
 
@@ -10,8 +11,10 @@ func New() *cli.Command {
 	return &cli.Command{
 		Name:            "251207-task-remote",
 		Usage:           "task remote helper CLI",
+		Version:         version.GetVersion(),
 		HideHelpCommand: true,
 		Commands: []*cli.Command{
+			version.Command,
 			bumpCommand(),
 			lockCommand(),
 			gitCommand(),
