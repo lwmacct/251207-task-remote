@@ -148,7 +148,7 @@ tasks:
   tag:next:
     desc: "创建并推送新版本标签（语义化版本）"
     summary: |
-      创建并推送语义化版本标签，自动更新 npm package 版本并提交
+      创建并推送语义化版本标签，自动更新支持的版本文件并提交
 
       用法:
         task git:tag:next [版本等级] [提交信息]
@@ -179,7 +179,7 @@ tasks:
         task git:tag:next 1 "重大更新"  # v2.0.0 (标准规则: major)
 
       执行流程:
-        1. 更新 package.json 和 package-lock.json 中的版本号
+        1. 更新当前项目中支持的版本文件
         2. 提交并推送更改
         3. 创建 annotated tag
         4. 推送 tag 到远程仓库

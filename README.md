@@ -1,18 +1,18 @@
 # 251207 Task Remote
 
-常用 Taskfile 逻辑的 npm CLI。
+常用 Taskfile 逻辑的 Go CLI。
 
 ## 使用
 
 ```bash
-npx --yes @lwmacct/251207-task-remote version set v1.2.3
-```
-
-Go 版本可直接安装为同名命令：
-
-```bash
 go install github.com/lwmacct/251207-task-remote@latest
 251207-task-remote version set v1.2.3
+```
+
+确保 Go bin 目录在 `PATH` 中：
+
+```bash
+export PATH="$HOME/go/bin:$PATH"
 ```
 
 本仓库开发时可直接运行：
@@ -26,7 +26,7 @@ go run . version next 3
 更新当前项目中所有支持的版本文件：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote version set v1.2.3
+251207-task-remote version set v1.2.3
 ```
 
 当前支持：
@@ -37,14 +37,14 @@ npx --yes @lwmacct/251207-task-remote version set v1.2.3
 只更新指定类型：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote version set v1.2.3 --type npm
-npx --yes @lwmacct/251207-task-remote version set v1.2.3 --type python
+251207-task-remote version set v1.2.3 --type npm
+251207-task-remote version set v1.2.3 --type python
 ```
 
 计算下一个版本：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote version next 3
+251207-task-remote version next 3
 ```
 
 ## Lockfile 缓存 Key
@@ -52,18 +52,16 @@ npx --yes @lwmacct/251207-task-remote version next 3
 生成忽略根包版本信息的 npm lockfile 派生文件：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote lock normalize --type npm --output tmp/cache/package-lock.deps.json
+251207-task-remote lock normalize --type npm --output tmp/cache/package-lock.deps.json
 ```
 
 直接输出派生内容的 SHA256：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote lock hash --type npm
+251207-task-remote lock hash --type npm
 ```
 
 这个能力用于 CI cache key，不会修改真实的 `package-lock.json`。
-
-手动触发的示例 workflow 见 `.github/workflows/cache-example.yml`。
 
 ## Git 辅助输出
 
@@ -72,20 +70,20 @@ npx --yes @lwmacct/251207-task-remote lock hash --type npm
 输出默认分支名：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote git default-branch
+251207-task-remote git default-branch
 ```
 
 生成临时开发分支名：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote git dev-branch-name
-npx --yes @lwmacct/251207-task-remote git dev-branch-name feature-a
+251207-task-remote git dev-branch-name
+251207-task-remote git dev-branch-name feature-a
 ```
 
 生成备份分支名：
 
 ```bash
-npx --yes @lwmacct/251207-task-remote git backup-branch-name main
+251207-task-remote git backup-branch-name main
 ```
 
 ## Taskfile 远程更新
