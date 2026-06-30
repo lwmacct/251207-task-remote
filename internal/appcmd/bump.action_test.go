@@ -63,6 +63,97 @@ func TestBumpSetUpdatesNpmFilesWithoutNpmOutput(t *testing.T) {
 	}
 }
 
+func TestBumpSetPreservesNpmJSONLayout(t *testing.T) {
+	cwd := t.TempDir()
+	packageJSON := `{
+    "scripts": {
+        "test": "node test.js"
+    },
+    "version": "0.1.0",
+    "name": "sample",
+    "dependencies": {
+        "leftpad": "1.0.0"
+    }
+}
+`
+	packageLock := `{
+  "packages": {
+    "node_modules/leftpad": {
+      "version": "1.0.0"
+    },
+    "": {
+      "dependencies": {
+        "leftpad": "1.0.0"
+      },
+      "version": "0.1.0",
+      "name": "sample"
+    }
+  },
+  "requires": true,
+  "lockfileVersion": 3,
+  "version": "0.1.0",
+  "name": "sample"
+}
+`
+	if err := os.WriteFile(filepath.Join(cwd, "package.json"), []byte(packageJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cwd, "package-lock.json"), []byte(packageLock), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := New().Run(context.Background(), []string{"251207-task-remote", "bump", "set", "--cwd", cwd, "v1.2.3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nextPackageJSON, err := os.ReadFile(filepath.Join(cwd, "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPackageJSON := `{
+    "scripts": {
+        "test": "node test.js"
+    },
+    "version": "1.2.3",
+    "name": "sample",
+    "dependencies": {
+        "leftpad": "1.0.0"
+    }
+}
+`
+	if string(nextPackageJSON) != expectedPackageJSON {
+		t.Fatalf("package.json layout changed:\n%s", nextPackageJSON)
+	}
+
+	nextPackageLock, err := os.ReadFile(filepath.Join(cwd, "package-lock.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPackageLock := `{
+  "packages": {
+    "node_modules/leftpad": {
+      "version": "1.0.0"
+    },
+    "": {
+      "dependencies": {
+        "leftpad": "1.0.0"
+      },
+      "version": "1.2.3",
+      "name": "sample"
+    }
+  },
+  "requires": true,
+  "lockfileVersion": 3,
+  "version": "1.2.3",
+  "name": "sample"
+}
+`
+	if string(nextPackageLock) != expectedPackageLock {
+		t.Fatalf("package-lock.json layout changed:\n%s", nextPackageLock)
+	}
+}
+
 func TestBumpSetRejectsUnsupportedLockfileVersionWithoutPartialWrite(t *testing.T) {
 	cwd := t.TempDir()
 	utilWriteTestJSON(t, filepath.Join(cwd, "package.json"), map[string]any{

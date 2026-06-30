@@ -21,21 +21,6 @@ func utilReadJSONObject(file string) (map[string]any, error) {
 	return value, nil
 }
 
-func utilWriteJSONObject(file string, value map[string]any) error {
-	original, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	content, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return err
-	}
-	if len(original) > 0 && original[len(original)-1] == '\n' {
-		content = append(content, '\n')
-	}
-	return os.WriteFile(file, content, 0o644)
-}
-
 func utilNumberAsInt(value any) (int, bool) {
 	switch typed := value.(type) {
 	case float64:

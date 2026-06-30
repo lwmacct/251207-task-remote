@@ -9,13 +9,13 @@ import (
 )
 
 func gitDefaultBranchAction(ctx context.Context, cmd *cli.Command) error {
-	fmt.Fprintln(cmd.Writer, defaultBranch())
-	return nil
+	_, err := fmt.Fprintln(cmd.Writer, defaultBranch())
+	return err
 }
 
 func gitDevBranchNameAction(ctx context.Context, cmd *cli.Command) error {
-	fmt.Fprintln(cmd.Writer, devBranchName(cmd.Args().Slice()))
-	return nil
+	_, err := fmt.Fprintln(cmd.Writer, devBranchName(cmd.Args().Slice()))
+	return err
 }
 
 func gitBackupBranchNameAction(ctx context.Context, cmd *cli.Command) error {
@@ -23,8 +23,8 @@ func gitBackupBranchNameAction(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(cmd.Writer, name)
-	return nil
+	_, err = fmt.Fprintln(cmd.Writer, name)
+	return err
 }
 
 func defaultBranch() string {

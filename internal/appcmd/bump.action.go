@@ -3,6 +3,7 @@ package appcmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -29,8 +30,8 @@ func bumpNextAction(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(cmd.Writer, next)
-	return nil
+	_, err = fmt.Fprintln(cmd.Writer, next)
+	return err
 }
 
 func setVersion(cwdValue string, versionType string, version string) error {
@@ -60,7 +61,7 @@ func setVersion(cwdValue string, versionType string, version string) error {
 				return err
 			}
 		default:
-			return fmt.Errorf("Unsupported version type: %s", typ)
+			return fmt.Errorf("unsupported version type: %s", typ)
 		}
 	}
 	return nil
@@ -71,7 +72,7 @@ func resolveVersionTypes(versionType string, cwd string) ([]string, error) {
 		return []string{versionType}, nil
 	}
 	if versionType != "all" && versionType != "auto" {
-		return nil, fmt.Errorf("Unsupported version type: %s", versionType)
+		return nil, fmt.Errorf("unsupported version type: %s", versionType)
 	}
 
 	var types []string
@@ -93,37 +94,62 @@ func setNpmVersion(cwd string, version string) error {
 		return fmt.Errorf("package.json not found in %s", cwd)
 	}
 
-	packageJSON, err := utilReadJSONObject(packageJSONPath)
+	packageJSONContent, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return err
 	}
-	packageJSON["version"] = version
+	var packageJSON map[string]any
+	if err := json.Unmarshal(packageJSONContent, &packageJSON); err != nil {
+		return err
+	}
+	if _, ok := packageJSON["version"].(string); !ok {
+		return fmt.Errorf("version field not found in %s", packageJSONPath)
+	}
+	nextPackageJSON, err := utilReplaceJSONStringValue(packageJSONContent, []string{"version"}, version)
+	if err != nil {
+		return err
+	}
 
 	lockPath := filepath.Join(cwd, "package-lock.json")
-	var packageLock map[string]any
+	var nextPackageLock []byte
 	if utilFileExists(lockPath) {
-		packageLock, err = utilReadJSONObject(lockPath)
+		lockContent, err := os.ReadFile(lockPath)
 		if err != nil {
+			return err
+		}
+		var packageLock map[string]any
+		if err := json.Unmarshal(lockContent, &packageLock); err != nil {
 			return err
 		}
 		lockfileVersion, ok := utilNumberAsInt(packageLock["lockfileVersion"])
 		if !ok || !slices.Contains([]int{2, 3}, lockfileVersion) {
-			return fmt.Errorf("Unsupported package-lock.json lockfileVersion: %v", packageLock["lockfileVersion"])
+			return fmt.Errorf("unsupported package-lock.json lockfileVersion: %v", packageLock["lockfileVersion"])
 		}
 
-		packageLock["version"] = version
+		if _, ok := packageLock["version"].(string); !ok {
+			return fmt.Errorf("version field not found in %s", lockPath)
+		}
+		nextPackageLock, err = utilReplaceJSONStringValue(lockContent, []string{"version"}, version)
+		if err != nil {
+			return err
+		}
 		if packages, ok := packageLock["packages"].(map[string]any); ok {
 			if rootPackage, ok := packages[""].(map[string]any); ok {
-				rootPackage["version"] = version
+				if _, ok := rootPackage["version"].(string); ok {
+					nextPackageLock, err = utilReplaceJSONStringValue(nextPackageLock, []string{"packages", "", "version"}, version)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
 
-	if err := utilWriteJSONObject(packageJSONPath, packageJSON); err != nil {
+	if err := os.WriteFile(packageJSONPath, nextPackageJSON, 0o644); err != nil {
 		return err
 	}
-	if packageLock != nil {
-		return utilWriteJSONObject(lockPath, packageLock)
+	if nextPackageLock != nil {
+		return os.WriteFile(lockPath, nextPackageLock, 0o644)
 	}
 	return nil
 }
@@ -151,7 +177,7 @@ func setRustVersion(cwd string, version string) error {
 	content, err := os.ReadFile(cargoTomlPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("Cargo.toml not found in %s", cwd)
+			return fmt.Errorf("required file not found: Cargo.toml in %s", cwd)
 		}
 		return err
 	}

@@ -23,8 +23,8 @@ func lockNormalizeAction(ctx context.Context, cmd *cli.Command) error {
 
 	output := cmd.String("output")
 	if output == "" {
-		fmt.Fprint(cmd.Writer, content)
-		return nil
+		_, err := fmt.Fprint(cmd.Writer, content)
+		return err
 	}
 
 	outputPath := filepath.Join(utilAbsPath(cmd.String("cwd")), output)
@@ -40,8 +40,8 @@ func lockHashAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 	sum := sha256.Sum256([]byte(content))
-	fmt.Fprintln(cmd.Writer, hex.EncodeToString(sum[:]))
-	return nil
+	_, err = fmt.Fprintln(cmd.Writer, hex.EncodeToString(sum[:]))
+	return err
 }
 
 func normalizedLock(cwdValue string, lockType string) (string, error) {
@@ -51,7 +51,7 @@ func normalizedLock(cwdValue string, lockType string) (string, error) {
 	case "rust":
 		return normalizeCargoLock(utilAbsPath(cwdValue))
 	default:
-		return "", fmt.Errorf("Unsupported lock type: %s", lockType)
+		return "", fmt.Errorf("unsupported lock type: %s", lockType)
 	}
 }
 
@@ -88,7 +88,7 @@ func normalizeCargoLock(cwd string) (string, error) {
 	cargoToml, err := os.ReadFile(cargoTomlPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("Cargo.toml not found in %s", cwd)
+			return "", fmt.Errorf("required file not found: Cargo.toml in %s", cwd)
 		}
 		return "", err
 	}
@@ -101,7 +101,7 @@ func normalizeCargoLock(cwd string) (string, error) {
 	lock, err := os.ReadFile(lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return "", fmt.Errorf("Cargo.lock not found in %s", cwd)
+			return "", fmt.Errorf("required file not found: Cargo.lock in %s", cwd)
 		}
 		return "", err
 	}
