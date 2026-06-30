@@ -8,6 +8,19 @@
 npx --yes @lwmacct/251207-task-remote version set v1.2.3
 ```
 
+Go 版本可直接安装为同名命令：
+
+```bash
+go install github.com/lwmacct/251207-task-remote@latest
+251207-task-remote version set v1.2.3
+```
+
+本仓库开发时可直接运行：
+
+```bash
+go run . version next 3
+```
+
 ## 版本
 
 更新当前项目中所有支持的版本文件：
