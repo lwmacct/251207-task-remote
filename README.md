@@ -6,7 +6,7 @@
 
 ```bash
 go install github.com/lwmacct/251207-task-remote@latest
-251207-task-remote version set v1.2.3
+251207-task-remote bump set v1.2.3
 ```
 
 确保 Go bin 目录在 `PATH` 中：
@@ -18,7 +18,7 @@ export PATH="$HOME/go/bin:$PATH"
 本仓库开发时可直接运行：
 
 ```bash
-go run . version next 3
+go run . bump next 3
 ```
 
 ## 版本
@@ -26,7 +26,7 @@ go run . version next 3
 更新当前项目中所有支持的版本文件：
 
 ```bash
-251207-task-remote version set v1.2.3
+251207-task-remote bump set v1.2.3
 ```
 
 当前支持：
@@ -37,14 +37,14 @@ go run . version next 3
 只更新指定类型：
 
 ```bash
-251207-task-remote version set v1.2.3 --type npm
-251207-task-remote version set v1.2.3 --type python
+251207-task-remote bump set v1.2.3 --type npm
+251207-task-remote bump set v1.2.3 --type python
 ```
 
 计算下一个版本：
 
 ```bash
-251207-task-remote version next 3
+251207-task-remote bump next 3
 ```
 
 ## Lockfile 缓存 Key

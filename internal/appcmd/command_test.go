@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestVersionSetUpdatesNpmFilesWithoutNpmOutput(t *testing.T) {
+func TestBumpSetUpdatesNpmFilesWithoutNpmOutput(t *testing.T) {
 	cwd := t.TempDir()
 	writeTestJSON(t, filepath.Join(cwd, "package.json"), map[string]any{
 		"name":    "sample",
@@ -41,7 +41,7 @@ func TestVersionSetUpdatesNpmFilesWithoutNpmOutput(t *testing.T) {
 	cmd := New()
 	cmd.Writer = &stdout
 	cmd.ErrWriter = &stdout
-	err := cmd.Run(context.Background(), []string{"251207-task-remote", "version", "set", "--cwd", cwd, "v1.2.3"})
+	err := cmd.Run(context.Background(), []string{"251207-task-remote", "bump", "set", "--cwd", cwd, "v1.2.3"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestVersionSetUpdatesNpmFilesWithoutNpmOutput(t *testing.T) {
 	}
 }
 
-func TestVersionSetRejectsUnsupportedLockfileVersionWithoutPartialWrite(t *testing.T) {
+func TestBumpSetRejectsUnsupportedLockfileVersionWithoutPartialWrite(t *testing.T) {
 	cwd := t.TempDir()
 	writeTestJSON(t, filepath.Join(cwd, "package.json"), map[string]any{
 		"name":    "sample",
@@ -75,7 +75,7 @@ func TestVersionSetRejectsUnsupportedLockfileVersionWithoutPartialWrite(t *testi
 		"lockfileVersion": 1,
 	})
 
-	err := New().Run(context.Background(), []string{"251207-task-remote", "version", "set", "--cwd", cwd, "1.2.3"})
+	err := New().Run(context.Background(), []string{"251207-task-remote", "bump", "set", "--cwd", cwd, "1.2.3"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -120,7 +120,7 @@ func TestLockNormalizeAndHash(t *testing.T) {
 	}
 }
 
-func TestVersionNextDevRule(t *testing.T) {
+func TestBumpNextDevRule(t *testing.T) {
 	next, err := nextVersion(t.TempDir(), "3", "v0.7.260101", "main", "260630")
 	if err != nil {
 		t.Fatal(err)
