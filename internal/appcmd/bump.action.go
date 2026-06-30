@@ -38,7 +38,7 @@ func setVersion(cwdValue string, versionType string, version string) error {
 		return errors.New("bump set requires a version")
 	}
 
-	cwd := absPath(cwdValue)
+	cwd := utilAbsPath(cwdValue)
 	normalized := strings.TrimPrefix(version, "v")
 	types, err := resolveVersionTypes(versionType, cwd)
 	if err != nil {
@@ -71,10 +71,10 @@ func resolveVersionTypes(versionType string, cwd string) ([]string, error) {
 	}
 
 	var types []string
-	if fileExists(filepath.Join(cwd, "package.json")) {
+	if utilFileExists(filepath.Join(cwd, "package.json")) {
 		types = append(types, "npm")
 	}
-	if fileExists(filepath.Join(cwd, "pyproject.toml")) {
+	if utilFileExists(filepath.Join(cwd, "pyproject.toml")) {
 		types = append(types, "python")
 	}
 	return types, nil
@@ -82,11 +82,11 @@ func resolveVersionTypes(versionType string, cwd string) ([]string, error) {
 
 func setNpmVersion(cwd string, version string) error {
 	packageJSONPath := filepath.Join(cwd, "package.json")
-	if !fileExists(packageJSONPath) {
+	if !utilFileExists(packageJSONPath) {
 		return fmt.Errorf("package.json not found in %s", cwd)
 	}
 
-	packageJSON, err := readJSONObject(packageJSONPath)
+	packageJSON, err := utilReadJSONObject(packageJSONPath)
 	if err != nil {
 		return err
 	}
@@ -94,12 +94,12 @@ func setNpmVersion(cwd string, version string) error {
 
 	lockPath := filepath.Join(cwd, "package-lock.json")
 	var packageLock map[string]any
-	if fileExists(lockPath) {
-		packageLock, err = readJSONObject(lockPath)
+	if utilFileExists(lockPath) {
+		packageLock, err = utilReadJSONObject(lockPath)
 		if err != nil {
 			return err
 		}
-		lockfileVersion, ok := numberAsInt(packageLock["lockfileVersion"])
+		lockfileVersion, ok := utilNumberAsInt(packageLock["lockfileVersion"])
 		if !ok || !slices.Contains([]int{2, 3}, lockfileVersion) {
 			return fmt.Errorf("Unsupported package-lock.json lockfileVersion: %v", packageLock["lockfileVersion"])
 		}
@@ -112,11 +112,11 @@ func setNpmVersion(cwd string, version string) error {
 		}
 	}
 
-	if err := writeJSONObject(packageJSONPath, packageJSON); err != nil {
+	if err := utilWriteJSONObject(packageJSONPath, packageJSON); err != nil {
 		return err
 	}
 	if packageLock != nil {
-		return writeJSONObject(lockPath, packageLock)
+		return utilWriteJSONObject(lockPath, packageLock)
 	}
 	return nil
 }
@@ -140,7 +140,7 @@ func setPythonVersion(cwd string, version string) error {
 }
 
 func nextVersion(cwdValue string, level string, tag string, branch string, date string) (string, error) {
-	cwd := absPath(cwdValue)
+	cwd := utilAbsPath(cwdValue)
 	if tag == "" {
 		tag = latestTag(cwd)
 	}
@@ -152,7 +152,7 @@ func nextVersion(cwdValue string, level string, tag string, branch string, date 
 	if strings.HasPrefix(branch, "dev/") || major == 0 {
 		nextMinor := latestDevMinor(cwd) + 1
 		if date == "" {
-			date = shanghaiDate("060102")
+			date = utilShanghaiDate("060102")
 		}
 		return fmt.Sprintf("v0.%d.%s", nextMinor, date), nil
 	}
@@ -184,7 +184,7 @@ func parsePart(parts []string, index int) int {
 }
 
 func latestTag(cwd string) string {
-	output := readCommand(cwd, "git", "tag", "--sort=-v:refname")
+	output := utilReadCommand(cwd, "git", "tag", "--sort=-v:refname")
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
@@ -195,7 +195,7 @@ func latestTag(cwd string) string {
 }
 
 func currentBranch(cwd string) string {
-	branch := readCommand(cwd, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	branch := utilReadCommand(cwd, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	if branch == "" {
 		return "main"
 	}
@@ -203,7 +203,7 @@ func currentBranch(cwd string) string {
 }
 
 func latestDevMinor(cwd string) int {
-	output := readCommand(cwd, "git", "tag", "--sort=-v:refname")
+	output := utilReadCommand(cwd, "git", "tag", "--sort=-v:refname")
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "v0.") {

@@ -24,7 +24,7 @@ func lockNormalizeAction(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	outputPath := filepath.Join(absPath(cmd.String("cwd")), output)
+	outputPath := filepath.Join(utilAbsPath(cmd.String("cwd")), output)
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return err
 	}
@@ -45,12 +45,12 @@ func normalizedLock(cwdValue string, lockType string) (string, error) {
 	if lockType != "npm" {
 		return "", fmt.Errorf("Unsupported lock type: %s", lockType)
 	}
-	return normalizeNpmLock(absPath(cwdValue))
+	return normalizeNpmLock(utilAbsPath(cwdValue))
 }
 
 func normalizeNpmLock(cwd string) (string, error) {
 	lockPath := filepath.Join(cwd, "package-lock.json")
-	lock, err := readJSONObject(lockPath)
+	lock, err := utilReadJSONObject(lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf("package-lock.json not found in %s", cwd)

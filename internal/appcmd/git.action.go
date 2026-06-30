@@ -28,14 +28,14 @@ func gitBackupBranchNameAction(ctx context.Context, cmd *cli.Command) error {
 }
 
 func defaultBranch() string {
-	originHead := readCommand("", "git", "symbolic-ref", "refs/remotes/origin/HEAD")
+	originHead := utilReadCommand("", "git", "symbolic-ref", "refs/remotes/origin/HEAD")
 	if strings.HasPrefix(originHead, "refs/remotes/origin/") {
 		return strings.TrimPrefix(originHead, "refs/remotes/origin/")
 	}
 
-	remoteBranches := readCommand("", "git", "branch", "-r")
+	remoteBranches := utilReadCommand("", "git", "branch", "-r")
 	for _, branch := range []string{"main", "master"} {
-		if containsLine(remoteBranches, "origin/"+branch) {
+		if utilContainsLine(remoteBranches, "origin/"+branch) {
 			return branch
 		}
 	}
@@ -45,19 +45,19 @@ func defaultBranch() string {
 func devBranchName(args []string) string {
 	suffix := strings.Join(args, " ")
 	if suffix == "" {
-		suffix = shanghaiDate("1504")
+		suffix = utilShanghaiDate("1504")
 	}
-	return fmt.Sprintf("dev/%s-%s", shanghaiDate("060102"), suffix)
+	return fmt.Sprintf("dev/%s-%s", utilShanghaiDate("060102"), suffix)
 }
 
 func backupBranchName(branch string) (string, error) {
 	if branch == "" {
-		branch = readCommand("", "git", "branch", "--show-current")
+		branch = utilReadCommand("", "git", "branch", "--show-current")
 	}
 	if branch == "" {
 		return "", nil
 	}
 
-	date := shanghaiDate("0601021504")
+	date := utilShanghaiDate("0601021504")
 	return fmt.Sprintf("backup/%s/%s/%s/%s/%s", date[0:2], date[2:4], date[4:6], date[6:], branch), nil
 }
