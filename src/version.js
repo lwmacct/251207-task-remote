@@ -1,4 +1,3 @@
-const { spawnSync } = require("node:child_process");
 const { existsSync, readFileSync, writeFileSync } = require("node:fs");
 const path = require("node:path");
 
@@ -101,23 +100,8 @@ function parseNextArgs(argv) {
   return options;
 }
 
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, {
-    cwd,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (typeof result.status === "number" && result.status !== 0) {
-    process.exit(result.status);
-  }
-}
-
 function read(command, args, cwd) {
+  const { spawnSync } = require("node:child_process");
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
@@ -250,8 +234,37 @@ function setNpmVersion(version, cwd) {
     throw new Error(`package.json not found in ${cwd}`);
   }
 
-  run("npm", ["version", version, "--no-git-tag-version", "--allow-same-version"], cwd);
-  run("npm", ["install", "--package-lock-only", "--ignore-scripts"], cwd);
+  const packageJsonContent = readJsonFile(packageJson);
+  packageJsonContent.version = version;
+
+  const packageLock = path.join(cwd, "package-lock.json");
+  let packageLockContent = null;
+  if (existsSync(packageLock)) {
+    packageLockContent = readJsonFile(packageLock);
+    if (![2, 3].includes(packageLockContent.lockfileVersion)) {
+      throw new Error(`Unsupported package-lock.json lockfileVersion: ${packageLockContent.lockfileVersion}`);
+    }
+
+    packageLockContent.version = version;
+    if (packageLockContent.packages && packageLockContent.packages[""]) {
+      packageLockContent.packages[""].version = version;
+    }
+  }
+
+  writeJsonFile(packageJson, packageJsonContent);
+  if (packageLockContent) {
+    writeJsonFile(packageLock, packageLockContent);
+  }
+}
+
+function readJsonFile(file) {
+  return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function writeJsonFile(file, content) {
+  const original = readFileSync(file, "utf8");
+  const trailingNewline = original.endsWith("\n") ? "\n" : "";
+  writeFileSync(file, `${JSON.stringify(content, null, 2)}${trailingNewline}`);
 }
 
 function setPythonVersion(version, cwd) {
