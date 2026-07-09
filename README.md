@@ -34,8 +34,9 @@ go run . --help
 
 当前支持的版本文件：
 
-- npm: `package.json`、`package-lock.json`
+- npm: `package.json`、`package-lock.json`，以及 npm/pnpm workspace 匹配到的 `package.json`
 - Python: `pyproject.toml`
+- Rust: `Cargo.toml`、`Cargo.lock`
 
 ## Taskfile 远程更新
 
