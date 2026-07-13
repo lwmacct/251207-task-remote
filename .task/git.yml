@@ -245,9 +245,10 @@ tasks:
         echo $_current_branch > /tmp/task_current_branch
 
   fork:sync:
-    desc: "从上游同步代码并返回原分支"
+    desc: "同步上游默认分支到 fork"
     summary: |
-      从上游仓库（upstream）同步最新代码到你的 fork，并返回当前分支
+      将 upstream 默认分支以 fast-forward 方式同步到 origin；
+      同步成功后恢复执行前所在分支。
 
       前置条件:
         1. 必须配置 upstream 远程仓库
@@ -261,7 +262,7 @@ tasks:
         4. 获取 origin 与 upstream 的最新默认分支
         5. 仅以 fast-forward 方式同步，分支已分叉时停止
         6. 推送到 origin
-        7. 返回原分支
+        7. 同步成功后恢复执行前所在分支
 
       配置 upstream 示例:
         git remote add upstream https://github.com/original/repo.git
@@ -272,10 +273,10 @@ tasks:
         _default_branch=$(cat /tmp/task_default_branch 2>/dev/null)
         _current_branch=$(cat /tmp/task_current_branch 2>/dev/null)
 
-        # 恢复到原来的分支
+        # 恢复执行前所在分支
         if [[ "$_current_branch" != "$_default_branch" ]]; then
           git checkout $_current_branch 2>/dev/null
-          echo "📍 已返回原分支: $_current_branch"
+          echo "📍 已恢复执行前所在分支: $_current_branch"
         fi
         rm -f /tmp/task_default_branch /tmp/task_current_branch
 
@@ -299,8 +300,8 @@ tasks:
         - 需要基于最新的上游代码
 
       与 fork:sync 的区别:
-        - fork:sync: 同步后返回原分支
-        - fork:start: 同步后创建新分支
+        - fork:sync: 同步默认分支后恢复执行前所在分支
+        - fork:start: 同步默认分支后创建 topic 分支
     silent: true
     cmds:
       - task: fork:sync:internal
