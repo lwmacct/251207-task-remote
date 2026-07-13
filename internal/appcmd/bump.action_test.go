@@ -358,12 +358,100 @@ dependencies = [
 	}
 }
 
-func TestBumpNextDevRule(t *testing.T) {
-	next, err := nextVersion(t.TempDir(), "3", "v0.7.260101", "main", "260630")
+func TestBumpNextZeroMajorRule(t *testing.T) {
+	tests := []struct {
+		name   string
+		level  string
+		branch string
+	}{
+		{name: "minor on main", level: "minor", branch: "main"},
+		{name: "major on topic", level: "major", branch: "topic/feature"},
+		{name: "patch on topic", level: "patch", branch: "topic/fix-login"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			next, err := nextVersion(t.TempDir(), test.level, "v0.7.260101", test.branch, "260630")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next != "v0.1.260630" {
+				t.Fatalf("next = %s", next)
+			}
+		})
+	}
+}
+
+func TestBumpNextStableVersionModes(t *testing.T) {
+	tests := []struct {
+		level string
+		want  string
+	}{
+		{level: "minor", want: "v1.3.0"},
+		{level: "major", want: "v2.0.0"},
+		{level: "patch", want: "v1.2.4"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.level, func(t *testing.T) {
+			next, err := nextVersion(t.TempDir(), test.level, "v1.2.3", "topic/fix-login", "260630")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next != test.want {
+				t.Fatalf("next = %s, want %s", next, test.want)
+			}
+		})
+	}
+}
+
+func TestBumpNextDefaultsToPatch(t *testing.T) {
+	var stdout bytes.Buffer
+	cmd := New()
+	cmd.Writer = &stdout
+	cmd.ErrWriter = &stdout
+	err := cmd.Run(context.Background(), []string{
+		"251207-task-remote", "bump", "next",
+		"--cwd", t.TempDir(), "--tag", "v1.2.3", "--date", "260630",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if next != "v0.1.260630" {
+	if stdout.String() != "v1.2.4\n" {
+		t.Fatalf("output = %q", stdout.String())
+	}
+}
+
+func TestBumpNextStablePromotion(t *testing.T) {
+	next, err := nextVersion(t.TempDir(), "stable", "v0.7.260101", "topic/release", "260630")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next != "v1.0.0" {
 		t.Fatalf("next = %s", next)
+	}
+}
+
+func TestBumpNextTreatsStablePatchAsSemverNumber(t *testing.T) {
+	next, err := nextVersion(t.TempDir(), "patch", "v1.8.260713", "main", "260630")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next != "v1.8.260714" {
+		t.Fatalf("next = %s", next)
+	}
+}
+
+func TestBumpNextRejectsStableModeForStableVersion(t *testing.T) {
+	_, err := nextVersion(t.TempDir(), "stable", "v1.2.3", "main", "260630")
+	if err == nil || !strings.Contains(err.Error(), "stable mode requires a v0 version") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestBumpNextRejectsUnknownLevel(t *testing.T) {
+	_, err := nextVersion(t.TempDir(), "unknown", "v0.7.260101", "main", "260630")
+	if err == nil || !strings.Contains(err.Error(), "unsupported version level") {
+		t.Fatalf("err = %v", err)
 	}
 }

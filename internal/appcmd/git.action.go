@@ -13,8 +13,8 @@ func gitDefaultBranchAction(ctx context.Context, cmd *cli.Command) error {
 	return err
 }
 
-func gitDevBranchNameAction(ctx context.Context, cmd *cli.Command) error {
-	_, err := fmt.Fprintln(cmd.Writer, devBranchName(cmd.Args().Slice()))
+func gitTopicBranchNameAction(ctx context.Context, cmd *cli.Command) error {
+	_, err := fmt.Fprintln(cmd.Writer, topicBranchName(cmd.Args().Slice()))
 	return err
 }
 
@@ -42,12 +42,12 @@ func defaultBranch() string {
 	return "main"
 }
 
-func devBranchName(args []string) string {
-	suffix := strings.Join(args, " ")
-	if suffix == "" {
-		suffix = utilShanghaiDate("1504")
+func topicBranchName(args []string) string {
+	name := strings.Join(strings.Fields(strings.Join(args, " ")), "-")
+	if name == "" {
+		name = utilShanghaiDate("060102-1504")
 	}
-	return fmt.Sprintf("dev/%s-%s", utilShanghaiDate("060102"), suffix)
+	return fmt.Sprintf("topic/%s", name)
 }
 
 func backupBranchName(branch string) (string, error) {

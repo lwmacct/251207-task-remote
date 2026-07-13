@@ -146,37 +146,39 @@ tasks:
       - git tag --sort=creatordate | cat
 
   tag:next:
-    desc: "创建并推送新版本标签（语义化版本）"
+    desc: "按照项目版本规则创建并推送新标签"
     summary: |
-      创建并推送语义化版本标签，自动更新支持的版本文件并提交
+      计算并推送新版本标签，自动更新支持的版本文件并提交
 
       用法:
-        task git:tag:next [版本等级] [提交信息]
+        task git:tag:next -- [版本模式] [提交信息]
 
       参数:
-        版本等级: 1=major, 2=minor, 3=patch (默认 3)
+        版本模式: 1=major, 2=minor, 3=patch (默认), stable=v0 晋升稳定版
         提交信息: 可选的标签说明文字
 
-      标准版本规则 (major > 0):
-        1 = major: 主版本 (v1.0.0 -> v2.0.0) - 破坏性变更
-        2 = minor: 次版本 (v1.0.0 -> v1.1.0) - 新功能
-        3 = patch: 补丁 (v1.0.0 -> v1.0.1) - bug 修复 (默认)
+      稳定版本规则 (major > 0，分支无关):
+        - major: 主版本递增，minor 和 patch 归零
+        - minor: 次版本递增，patch 归零
+        - patch: 补丁版本递增 1 (默认)
 
-      开发版本规则 (major = 0 或 dev/* 分支):
+      开发阶段版本规则 (major = 0，分支无关):
         - major: 永远是 0
         - minor: 第N次修改（上一个值的递增）
         - patch: 时间值 YYMMDD
+        - stable: 晋升为 v1.0.0
 
       示例:
-        # 当前版本 v0.1.260104 (任意分支)
-        task git:tag:next              # v0.2.260109 (dev 规则: major=0)
-        task git:tag:next 2            # v0.3.260109 (dev 规则: minor 递增)
-        task git:tag:next 1 "重大更新"  # v0.4.260109 (dev 规则: 忽略 level)
+        # 当前版本 v0.22.260709（任意分支）
+        task git:tag:next                       # v0.23.YYMMDD
+        task git:tag:next -- major              # v0.23.YYMMDD (major 保持 0)
+        task git:tag:next -- stable "稳定版发布"  # v1.0.0
 
-        # 当前版本 v1.0.0 (非 dev 分支)
-        task git:tag:next              # v1.0.1 (标准规则: patch)
-        task git:tag:next 2            # v1.1.0 (标准规则: minor)
-        task git:tag:next 1 "重大更新"  # v2.0.0 (标准规则: major)
+        # 当前版本 v1.2.3（任意分支）
+        task git:tag:next                       # v1.2.4
+        task git:tag:next -- minor              # v1.3.0
+        task git:tag:next -- major "重大更新"    # v2.0.0
+        task git:tag:next -- patch              # v1.2.4
 
       执行流程:
         1. 更新当前项目中支持的版本文件
@@ -191,6 +193,8 @@ tasks:
     cmds:
       - '{{.TASK_REMOTE_CLI}} bump set "{{.GIT_TAG_NEXT}}"'
       - task: push
+        vars:
+          CLI_ARGS: "{{.TAG_MESSAGE}}"
       - |
         git tag -a {{.GIT_TAG_NEXT}} -m "version bump {{.GIT_TAG_NEXT}}"
         git push origin {{.GIT_TAG_NEXT}}
@@ -223,11 +227,16 @@ tasks:
         # 切换到默认分支
         git checkout $_default_branch
 
-        # 从 upstream 拉取并 rebase
-        git pull --rebase upstream $_default_branch
+        # 获取 fork 与上游的最新默认分支
+        git fetch origin "$_default_branch"
+        git fetch upstream "$_default_branch"
+
+        # 仅允许快进，避免重写历史或自动创建合并提交
+        git merge --ff-only "origin/$_default_branch"
+        git merge --ff-only "upstream/$_default_branch"
 
         # 推送到 origin
-        git push origin $_default_branch
+        git push origin "$_default_branch"
 
         echo "✅ 同步完成 ($_default_branch)"
 
@@ -249,9 +258,10 @@ tasks:
         1. 检查 upstream 是否配置
         2. 检查工作区状态
         3. 切换到默认分支（main/master）
-        4. 从 upstream 拉取并 rebase
-        5. 推送到 origin
-        6. 返回原分支
+        4. 获取 origin 与 upstream 的最新默认分支
+        5. 仅以 fast-forward 方式同步，分支已分叉时停止
+        6. 推送到 origin
+        7. 返回原分支
 
       配置 upstream 示例:
         git remote add upstream https://github.com/original/repo.git
@@ -269,7 +279,7 @@ tasks:
         fi
         rm -f /tmp/task_default_branch /tmp/task_current_branch
 
-  fork:update:
+  fork:start:
     desc: "从上游同步并创建新分支"
     summary: |
       从上游同步最新代码并创建新的开发分支，适合开始新功能开发
@@ -281,7 +291,7 @@ tasks:
 
       执行流程:
         1. 从 upstream 同步最新代码
-        2. 创建带时间戳的开发分支 (dev/YYMMDD-HHMM)
+        2. 创建 topic 分支（未指定名称时使用 topic/YYMMDD-HHMM）
         3. 你将直接进入新分支
 
       使用场景:
@@ -290,34 +300,35 @@ tasks:
 
       与 fork:sync 的区别:
         - fork:sync: 同步后返回原分支
-        - fork:update: 同步后创建新分支
+        - fork:start: 同步后创建新分支
     silent: true
     cmds:
       - task: fork:sync:internal
-      - task: branch:dev
+      - task: branch:topic
 
-  branch:dev:
-    desc: "创建带时间戳的临时开发分支"
+  branch:topic:
+    desc: "创建临时 topic 分支"
     summary: |
-      创建带时间戳的临时开发分支
+      创建用于独立变更的临时 topic 分支
 
       分支命名格式:
-        dev/YYMMDD-<后缀>
+        - 指定名称: topic/<名称>
+        - 未指定名称: topic/YYMMDD-HHMM
 
       用法:
-        # 不带参数（使用当前时间作为后缀）
-        task git:branch:dev
+        # 不带参数（使用当前日期和时间）
+        task git:branch:topic
 
-        # 自定义后缀（任意字符串）
-        task git:branch:dev feature-a
-        task git:branch:dev fix-login
-        task git:branch:dev 2359
+        # 指定变更名称
+        task git:branch:topic feature-a
+        task git:branch:topic fix-login
+        task git:branch:topic 123-fix-login
 
       示例:
-        task git:branch:dev              # dev/260104-0237
-        task git:branch:dev feature-a     # dev/260104-feature-a
-        task git:branch:dev fix-login     # dev/260104-fix-login
-        task git:branch:dev 2359          # dev/260104-2359
+        task git:branch:topic              # topic/260104-0237
+        task git:branch:topic feature-a    # topic/feature-a
+        task git:branch:topic fix-login    # topic/fix-login
+        task git:branch:topic 123-fix-login # topic/123-fix-login
     silent: true
     cmds:
       - |
@@ -327,9 +338,8 @@ tasks:
         git checkout $_default_branch
         # 拉取远程最新代码
         git pull origin $_default_branch
-        # 生成分支名：日期+时间（支持自定义时间部分）
-        _branch_name=$({{.TASK_REMOTE_CLI}} git dev-branch-name {{.CLI_ARGS}})
-        # 创建临时分支
+        # 生成并创建 topic 分支
+        _branch_name=$({{.TASK_REMOTE_CLI}} git topic-branch-name {{.CLI_ARGS}})
         git checkout -b "${_branch_name}"
         echo "✅ 已创建临时分支: ${_branch_name} (基于 $_default_branch)"
 

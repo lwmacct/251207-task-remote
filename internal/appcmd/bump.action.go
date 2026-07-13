@@ -426,7 +426,7 @@ func collectPythonVersionEdits(cwd string, version string, require bool) ([]vers
 	}
 
 	re := regexp.MustCompile(`(?m)^version\s*=\s*["'][^"']*["']`)
-	next := re.ReplaceAll(content, []byte(fmt.Sprintf(`version = "%s"`, version)))
+	next := re.ReplaceAll(content, fmt.Appendf(nil, `version = "%s"`, version))
 	if bytes.Equal(next, content) {
 		return nil, fmt.Errorf("version field not found in %s", pyprojectPath)
 	}
@@ -472,22 +472,25 @@ func collectRustVersionEdits(cwd string, version string, require bool) ([]versio
 	return edits, nil
 }
 
-func nextVersion(cwdValue string, level string, tag string, branch string, date string) (string, error) {
+func nextVersion(cwdValue string, level string, tag string, _ string, date string) (string, error) {
 	cwd := utilAbsPath(cwdValue)
 	if tag == "" {
 		tag = latestTag(cwd)
 	}
-	if branch == "" {
-		branch = currentBranch(cwd)
-	}
 
 	major, minor, patch := parseVersion(tag)
-	if strings.HasPrefix(branch, "dev/") || major == 0 {
-		nextMinor := latestDevMinor(cwd) + 1
-		if date == "" {
-			date = utilShanghaiDate("060102")
+	switch level {
+	case "1", "major", "2", "minor", "3", "patch", "stable":
+	default:
+		return "", fmt.Errorf("unsupported version level: %s", level)
+	}
+
+	if major == 0 {
+		if level == "stable" {
+			return "v1.0.0", nil
 		}
-		return fmt.Sprintf("v0.%d.%s", nextMinor, date), nil
+		nextMinor := latestZeroMajorMinor(cwd) + 1
+		return fmt.Sprintf("v0.%d.%s", nextMinor, versionDate(date)), nil
 	}
 
 	switch level {
@@ -495,9 +498,20 @@ func nextVersion(cwdValue string, level string, tag string, branch string, date 
 		return fmt.Sprintf("v%d.0.0", major+1), nil
 	case "2", "minor":
 		return fmt.Sprintf("v%d.%d.0", major, minor+1), nil
-	default:
+	case "3", "patch":
 		return fmt.Sprintf("v%d.%d.%d", major, minor, patch+1), nil
+	case "stable":
+		return "", fmt.Errorf("stable mode requires a v0 version, got %s", tag)
+	default:
+		return "", fmt.Errorf("unsupported version level: %s", level)
 	}
+}
+
+func versionDate(value string) string {
+	if value != "" {
+		return value
+	}
+	return utilShanghaiDate("060102")
 }
 
 func parseVersion(tag string) (int, int, int) {
@@ -527,15 +541,7 @@ func latestTag(cwd string) string {
 	return "v0.0.0"
 }
 
-func currentBranch(cwd string) string {
-	branch := utilReadCommand(cwd, "git", "rev-parse", "--abbrev-ref", "HEAD")
-	if branch == "" {
-		return "main"
-	}
-	return branch
-}
-
-func latestDevMinor(cwd string) int {
+func latestZeroMajorMinor(cwd string) int {
 	output := utilReadCommand(cwd, "git", "tag", "--sort=-v:refname")
 	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)

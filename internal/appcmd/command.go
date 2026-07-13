@@ -41,7 +41,7 @@ func bumpCommand() *cli.Command {
 			{
 				Name:      "next",
 				Usage:     "print next version",
-				ArgsUsage: "[level]",
+				ArgsUsage: "[major|minor|patch|stable]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "cwd", Value: "."},
 					&cli.StringFlag{Name: "tag"},
@@ -94,10 +94,10 @@ func gitCommand() *cli.Command {
 				Action: gitDefaultBranchAction,
 			},
 			{
-				Name:      "dev-branch-name",
-				Usage:     "print dev branch name",
-				ArgsUsage: "[suffix...]",
-				Action:    gitDevBranchNameAction,
+				Name:      "topic-branch-name",
+				Usage:     "print topic branch name",
+				ArgsUsage: "[name...]",
+				Action:    gitTopicBranchNameAction,
 			},
 			{
 				Name:      "backup-branch-name",
