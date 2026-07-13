@@ -33,111 +33,94 @@ tasks:
         5. 推送到远程仓库
 
       提交消息:
-        - 可以通过参数指定: task git:push "修复bug"
+        - 可以通过参数指定: task git:push -- "修复bug"
         - 不指定时自动生成: "chore YYYY-MM-DD HH:MM:SS CST"
 
       示例:
-        task git:push                 # 使用自动生成的消息
-        task git:push "添加新功能"     # 使用自定义消息
+        task git:push                    # 使用自动生成的消息
+        task git:push -- "添加新功能"    # 使用自定义消息
     vars:
       TIME_NOW:
         sh: echo "chore $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S %Z')"
+    env:
+      TASK_COMMIT_MESSAGE: '{{.CLI_ARGS | default .TIME_NOW}}'
     cmds:
       - task: pre-commit:install
       - |
         git add --all
         git status
-        git diff --cached --quiet || git commit -m '{{.CLI_ARGS | default .TIME_NOW}}'
+        git diff --cached --quiet || git commit -m "$TASK_COMMIT_MESSAGE"
         git push
 
-  push:merge:
-    desc: "提交并合并到主分支"
+  branch:land:
+    desc: "将当前分支 fast-forward 到 origin 默认分支"
     silent: true
     summary: |
-      先执行 push，再执行 merge
+      将当前已提交分支以 fast-forward 方式推送到 origin 默认分支；
+      不切换分支，也不修改本地默认分支。
 
-      用法:
-        task git:push:merge
+      适用范围:
+        - 仅适用于没有 upstream 的自有仓库
+        - fork 仓库应推送 topic 分支并通过 Pull Request 合并
 
-      说明:
-        - 使用各自任务的默认消息
-        - push 消息: "chore YYYY-MM-DD HH:MM:SS CST"
-        - merge 消息: "merge <分支名> YYYY-MM-DD HH:MM:SS"
-    cmds:
-      - task: push
-      - task: merge
-
-  merge:
-    desc: "合并当前分支到主分支"
-    silent: true
-    summary: |
-      将当前分支合并到默认主分支（main/master）
+      前置条件:
+        1. 当前分支不是默认分支
+        2. 工作区必须干净
+        3. origin 默认分支是当前分支的祖先
 
       执行流程:
-        1. 检查工作区状态（必须干净）
-        2. 推送当前分支（如有未推送更改）
-        3. 切换到默认分支
-        4. 拉取最新代码
-        5. 合并当前分支
-        6. 推送到远程
-        7. 返回原分支
-
-      示例:
-        task git:merge                # 使用默认 merge 消息
-        task git:merge "合并功能A"    # 使用自定义 merge 消息
-
-      合并消息:
-        - 不指定时自动生成: "merge <分支名> YYYY-MM-DD HH:MM:SS"
-        - 可通过参数指定自定义消息
-    vars:
-      MERGE_MESSAGE:
-        sh: echo "merge {{.GIT_BRANCH}} $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        1. 检查 origin、upstream、当前分支和工作区
+        2. 获取 origin 默认分支
+        3. 验证当前分支可以 fast-forward origin 默认分支
+        4. 将当前分支直接推送到 origin 默认分支
     cmds:
       - |
-        # 获取分支信息
-        _current_branch=$(git branch --show-current)
-        _default_branch=$({{.TASK_REMOTE_CLI}} git default-branch)
+        __main() {
+          _current_branch=$(git branch --show-current)
 
-        # 检查是否已在主分支
-        if [[ "$_current_branch" == "$_default_branch" ]]; then
-          echo "⚠️  当前已在主分支 ($_default_branch)，无需合并"
-          exit 0
-        fi
+          if ! git remote get-url origin >/dev/null 2>&1; then
+            echo "未配置 origin 远程仓库"
+            return 1
+          fi
+          if git remote get-url upstream >/dev/null 2>&1; then
+            echo "检测到 upstream，请推送 topic 分支并通过 Pull Request 合并"
+            return 1
+          fi
 
-        # 检查工作区状态
-        if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-          echo "⚠️  检测到未提交的更改，请先提交或 stash"
-          exit 1
-        fi
+          if ! _default_branch=$({{.TASK_REMOTE_CLI}} git default-branch); then
+            echo "无法解析 origin 默认分支"
+            return 1
+          fi
+          if [[ -z "$_current_branch" ]]; then
+            echo "当前处于 detached HEAD，无法执行 landing"
+            return 1
+          fi
+          if [[ "$_current_branch" == "$_default_branch" ]]; then
+            echo "当前已在默认分支 ($_default_branch)，无需执行 landing"
+            return 1
+          fi
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "工作区必须干净，请先提交或 stash"
+            return 1
+          fi
 
-        echo "📍 当前分支: $_current_branch"
-        echo "🎯 目标分支: $_default_branch"
+          if ! git fetch origin "$_default_branch"; then
+            echo "无法获取 origin/$_default_branch"
+            return 1
+          fi
+          if ! git merge-base --is-ancestor "origin/$_default_branch" "$_current_branch"; then
+            echo "当前分支无法 fast-forward origin/$_default_branch，请先 rebase"
+            return 1
+          fi
 
-        # 推送当前分支确保远程最新
-        echo "📤 推送当前分支..."
-        git push origin $_current_branch 2>&1 | sed 's/^/   /'
+          if ! git push origin "refs/heads/$_current_branch:refs/heads/$_default_branch"; then
+            echo "无法推送 origin/$_default_branch"
+            return 1
+          fi
+          echo "✅ 已完成 landing: $_current_branch -> origin/$_default_branch"
+        }
 
-        # 切换到主分支
-        echo "🔄 切换到主分支..."
-        git checkout $_default_branch 2>&1 | sed 's/^/   /'
-
-        # 拉取最新代码
-        echo "📥 拉取最新代码..."
-        git pull origin $_default_branch 2>&1 | sed 's/^/   /'
-
-        # 合并当前分支
-        echo "🔀 合并 $_current_branch..."
-        git merge $_current_branch -m "{{.CLI_ARGS | default .MERGE_MESSAGE}}" 2>&1 | sed 's/^/   /'
-
-        # 推送
-        echo "📤 推送到远程..."
-        git push origin $_default_branch 2>&1 | sed 's/^/   /'
-
-        # 返回原分支
-        echo "🔄 返回原分支..."
-        git checkout $_current_branch 2>&1 | sed 's/^/   /'
-
-        echo "✅ 已完成合并: $_current_branch -> $_default_branch"
+        __main
 
   tag:
     desc: "列出所有 Git 标签（按时间排序）"
